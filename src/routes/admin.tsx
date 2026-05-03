@@ -26,6 +26,7 @@ function AdminPage() {
   const [generatedCode, setGeneratedCode] = useState("");
   const [generatedCodeExpiresAt, setGeneratedCodeExpiresAt] = useState("");
   const [error, setError] = useState("");
+  const [debug, setDebug] = useState("");
   const [creating, setCreating] = useState(false);
 
   useEffect(() => {
@@ -54,6 +55,7 @@ function AdminPage() {
 
       setLoading(true);
       setError("");
+      setDebug("");
 
       try {
         const [usersResponse, auditResponse] = await Promise.all([loadAdminUsers(), loadAccessCodeAudit()]);
@@ -92,6 +94,7 @@ function AdminPage() {
   const generateCode = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setDebug("");
     setCreating(true);
 
     try {
@@ -102,6 +105,7 @@ function AdminPage() {
     } catch (generateError) {
       console.error("Falha ao gerar codigo de acesso", generateError);
       setError("Nao foi possivel gerar o codigo agora.");
+      setDebug(generateError instanceof Error ? generateError.message : String(generateError));
     } finally {
       setCreating(false);
     }
@@ -127,6 +131,11 @@ function AdminPage() {
         {error && (
           <div className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
             {error}
+          </div>
+        )}
+        {debug && (
+          <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-xs text-amber-700 break-words">
+            Debug: {debug}
           </div>
         )}
 

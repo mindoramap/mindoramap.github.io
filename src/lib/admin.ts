@@ -45,9 +45,9 @@ export const createAccessCode = async (expiresInHours: number) => {
 
   if (error) throw error;
 
-  const row = Array.isArray(data) ? data[0] : null;
+  const row = Array.isArray(data) ? data[0] : data;
   if (!row?.access_code) {
-    throw new Error("Nao foi possivel gerar o codigo.");
+    throw new Error(`Resposta inesperada ao gerar codigo: ${JSON.stringify(data)}`);
   }
 
   return {
