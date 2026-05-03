@@ -16,6 +16,19 @@ const formatSeconds = (seconds: number) => {
   return `${hours}h ${minutes}m`;
 };
 
+const formatDebugError = (value: unknown) => {
+  if (value instanceof Error) return value.message;
+  if (typeof value === "string") return value;
+  if (value && typeof value === "object") {
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return String(value);
+    }
+  }
+  return String(value);
+};
+
 function AdminPage() {
   const { user, initialized, init } = useAuth();
   const navigate = useNavigate();
@@ -105,7 +118,7 @@ function AdminPage() {
     } catch (generateError) {
       console.error("Falha ao gerar codigo de acesso", generateError);
       setError("Nao foi possivel gerar o codigo agora.");
-      setDebug(generateError instanceof Error ? generateError.message : String(generateError));
+      setDebug(formatDebugError(generateError));
     } finally {
       setCreating(false);
     }
