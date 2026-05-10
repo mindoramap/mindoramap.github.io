@@ -115,6 +115,8 @@ const readAllFolders = (ownerId?: string): MindFolder[] => {
 
 const saveAllFolders = (folders: MindFolder[], ownerId?: string) =>
   localStorage.setItem(ownerId ? foldersKey(ownerId) : FOLDERS_KEY, JSON.stringify(folders));
+
+const normalizeEmail = (email: string) => email.trim().toLowerCase();
 const normalizeOptionalEmail = (email?: string) => (email ? normalizeEmail(email) : "");
 const warnSchemaFallback = () => {
   if (warnedAboutSchemaFallback) return;
