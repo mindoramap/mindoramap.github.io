@@ -116,7 +116,7 @@ export function FloatingPanel({
       data-panel-id={id}
       className={cn(
         "z-20 overflow-hidden rounded-3xl border border-border/80 bg-card/95 text-card-foreground shadow-[var(--shadow-soft)] backdrop-blur-xl",
-        mobile ? "fixed inset-x-3 bottom-20 max-h-[70vh]" : `absolute ${widthClassName}`,
+        mobile ? "fixed inset-x-3 bottom-4 max-h-[72vh]" : `absolute ${widthClassName}`,
         dragging && "select-none"
       )}
       style={mobile ? undefined : { left: position.x, top: position.y }}
@@ -132,7 +132,7 @@ export function FloatingPanel({
           <span className="grid h-8 w-8 place-items-center rounded-2xl bg-primary/10 text-primary">{icon}</span>
           <div className="min-w-0">
             <div className="truncate text-sm font-semibold">{title}</div>
-            <div className="text-[11px] text-muted-foreground">{mobile ? "Painel móvel" : "Arraste para mover"}</div>
+            <div className="text-[11px] text-muted-foreground">{mobile ? "Painel mÃ³vel" : "Arraste para mover"}</div>
           </div>
         </div>
 
@@ -151,7 +151,7 @@ export function FloatingPanel({
         </div>
       </div>
 
-      <div className={cn("overflow-auto", mobile ? "max-h-[calc(70vh-65px)] p-4" : "max-h-[65vh] p-4")}>{children}</div>
+      <div className={cn("overflow-auto", mobile ? "max-h-[calc(72vh-65px)] p-4" : "max-h-[65vh] p-4")}>{children}</div>
     </div>
   );
 }

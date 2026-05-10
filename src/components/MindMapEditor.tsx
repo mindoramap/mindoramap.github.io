@@ -168,7 +168,7 @@ function EditorInner({ map, mode, orientation, connectMode, setConnectMode, orga
     setPendingSource(null);
     setHoverId(null);
     lastSavedViewport.current = map.viewport;
-  }, [map.id, map.nodes, map.edges, map.viewport, setNodes, setEdges]);
+  }, [map.id, setNodes, setEdges]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -364,7 +364,7 @@ function EditorInner({ map, mode, orientation, connectMode, setConnectMode, orga
         type: "mind",
         position: resolvedPosition,
         data: {
-          label: "Novo nó",
+          label: "Novo nÃ³",
           kind: map.mode === "project" ? "checklist" : "text",
           ...nodeData,
         },
@@ -496,7 +496,7 @@ function EditorInner({ map, mode, orientation, connectMode, setConnectMode, orga
           toast.success("Submapa criado com sucesso.");
         })().catch((error) => {
           console.error("Falha ao criar mapa conectado", error);
-          toast.error("Não foi possível criar o submapa agora.");
+          toast.error("NÃ£o foi possÃ­vel criar o submapa agora.");
         });
       }
     };
@@ -576,7 +576,7 @@ function EditorInner({ map, mode, orientation, connectMode, setConnectMode, orga
 
       const tokens = new Set(tokenize(source.data.label));
       if (tokens.size === 0) {
-        toast.warning("O nó precisa ter palavras significativas para sugerir conexões.");
+        toast.warning("O nÃ³ precisa ter palavras significativas para sugerir conexÃµes.");
         return;
       }
 
@@ -591,7 +591,7 @@ function EditorInner({ map, mode, orientation, connectMode, setConnectMode, orga
         .sort((left, right) => right.score - left.score);
 
       if (scored.length === 0) {
-        toast.info("Nenhum nó com palavra-chave em comum foi encontrado.");
+        toast.info("Nenhum nÃ³ com palavra-chave em comum foi encontrado.");
         return;
       }
 
@@ -617,7 +617,7 @@ function EditorInner({ map, mode, orientation, connectMode, setConnectMode, orga
       if (newEdges.length > 0) {
         setEdges((currentEdges) => [...currentEdges, ...newEdges]);
         toast.success(
-          scope === "one" ? "Conexão sugerida adicionada." : `${newEdges.length} conexões por palavra-chave foram criadas.`
+          scope === "one" ? "ConexÃ£o sugerida adicionada." : `${newEdges.length} conexÃµes por palavra-chave foram criadas.`
         );
       }
     },
@@ -664,19 +664,65 @@ function EditorInner({ map, mode, orientation, connectMode, setConnectMode, orga
 
   const toggleInspector = useCallback(() => {
     if (!selectedNode) return;
+
+    if (isMobile) {
+      setShowInspector(true);
+      setInspectorMinimized((current) => {
+        const next = !current;
+        if (!next) {
+          setMiniMapMinimized(true);
+          setHelpMinimized(true);
+        }
+        return next;
+      });
+      return;
+    }
+
     setShowInspector(true);
     setInspectorMinimized((current) => !current);
-  }, [selectedNode]);
+  }, [isMobile, selectedNode]);
 
   const toggleMiniMap = useCallback(() => {
+    if (isMobile) {
+      setShowMiniMap(true);
+      setMiniMapMinimized((current) => {
+        const next = !current;
+        if (!next) {
+          setInspectorMinimized(true);
+          setHelpMinimized(true);
+        }
+        return next;
+      });
+      return;
+    }
+
     setShowMiniMap(true);
     setMiniMapMinimized((current) => !current);
-  }, []);
+  }, [isMobile]);
 
   const toggleHelp = useCallback(() => {
+    if (isMobile) {
+      setShowHelp(true);
+      setHelpMinimized((current) => {
+        const next = !current;
+        if (!next) {
+          setInspectorMinimized(true);
+          setMiniMapMinimized(true);
+        }
+        return next;
+      });
+      return;
+    }
+
     setShowHelp(true);
     setHelpMinimized((current) => !current);
-  }, []);
+  }, [isMobile]);
+
+  const mobilePanelExpanded =
+    isMobile &&
+    ((selectedNode && !connectMode && showInspector && !inspectorMinimized) ||
+      (showMiniMap && !miniMapMinimized) ||
+      (showHelp && !helpMinimized));
 
   return (
     <div className={`relative h-full w-full ${connectMode ? "cursor-crosshair" : ""}`}>
@@ -712,13 +758,13 @@ function EditorInner({ map, mode, orientation, connectMode, setConnectMode, orga
 
       {connectMode && (
         <div className="pointer-events-none absolute left-1/2 top-4 z-10 -translate-x-1/2 rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-[var(--shadow-soft)]">
-          {pendingSource ? "Clique no nó de destino..." : "Modo conexão: selecione o nó de origem"}
+          {pendingSource ? "Clique no nÃ³ de destino..." : "Modo conexÃ£o: selecione o nÃ³ de origem"}
         </div>
       )}
 
       {proximityHintEdge && (
         <div className="pointer-events-none absolute bottom-20 left-1/2 z-10 -translate-x-1/2 rounded-full border border-primary/50 bg-card px-3 py-1 text-xs text-primary animate-pulse">
-          Sugestão: conectar nós próximos
+          SugestÃ£o: conectar nÃ³s prÃ³ximos
         </div>
       )}
 
@@ -767,7 +813,7 @@ function EditorInner({ map, mode, orientation, connectMode, setConnectMode, orga
       {showHelp && (
         <FloatingPanel
           id="help"
-          title="Ajuda rápida"
+          title="Ajuda rÃ¡pida"
           icon={<CircleHelp size={16} />}
           open={showHelp}
           minimized={helpMinimized}
@@ -780,20 +826,20 @@ function EditorInner({ map, mode, orientation, connectMode, setConnectMode, orga
         >
           <div className="space-y-3 text-sm text-muted-foreground">
             <p>
-              <kbd className="rounded bg-muted px-1.5 py-0.5 font-semibold text-foreground">Duplo-clique</kbd> no nó cria filho
+              <kbd className="rounded bg-muted px-1.5 py-0.5 font-semibold text-foreground">Duplo-clique</kbd> no nÃ³ cria filho
             </p>
             <p>
-              <kbd className="rounded bg-muted px-1.5 py-0.5 font-semibold text-foreground">Tab</kbd> cria filho · <kbd className="rounded bg-muted px-1.5 py-0.5 font-semibold text-foreground">Enter</kbd> cria irmão
+              <kbd className="rounded bg-muted px-1.5 py-0.5 font-semibold text-foreground">Tab</kbd> cria filho Â· <kbd className="rounded bg-muted px-1.5 py-0.5 font-semibold text-foreground">Enter</kbd> cria irmÃ£o
             </p>
             <p>
-              <kbd className="rounded bg-muted px-1.5 py-0.5 font-semibold text-foreground">Ctrl+Z</kbd> desfaz · <kbd className="rounded bg-muted px-1.5 py-0.5 font-semibold text-foreground">Del</kbd> remove
+              <kbd className="rounded bg-muted px-1.5 py-0.5 font-semibold text-foreground">Ctrl+Z</kbd> desfaz Â· <kbd className="rounded bg-muted px-1.5 py-0.5 font-semibold text-foreground">Del</kbd> remove
             </p>
-            {isMobile && <p>Toque no nó para selecionar e use as abas inferiores para expandir os painéis.</p>}
+            {isMobile && <p>Toque no nÃ³ para selecionar e use as abas inferiores para expandir os painÃ©is.</p>}
           </div>
         </FloatingPanel>
       )}
 
-      {isMobile && (
+      {isMobile && !mobilePanelExpanded && (
         <div className="absolute bottom-3 left-1/2 z-20 flex max-w-[calc(100%-24px)] -translate-x-1/2 gap-2 overflow-x-auto rounded-full border border-border/80 bg-card/92 p-2 shadow-[var(--shadow-soft)] backdrop-blur-xl">
           {selectedNode && (
             <PanelDockItem
@@ -824,8 +870,8 @@ function EditorInner({ map, mode, orientation, connectMode, setConnectMode, orga
       <Dialog open={Boolean(edgePendingDelete)} onOpenChange={(open) => !open && setEdgePendingDelete(null)}>
         <DialogContent className="rounded-3xl">
           <DialogHeader>
-            <DialogTitle>Remover conexão</DialogTitle>
-            <DialogDescription>Esta conexão será removida do mapa atual.</DialogDescription>
+            <DialogTitle>Remover conexÃ£o</DialogTitle>
+            <DialogDescription>Esta conexÃ£o serÃ¡ removida do mapa atual.</DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <button type="button" onClick={() => setEdgePendingDelete(null)} className="rounded-xl px-4 py-2 hover:bg-muted">
@@ -837,7 +883,7 @@ function EditorInner({ map, mode, orientation, connectMode, setConnectMode, orga
                 if (!edgePendingDelete) return;
                 setEdges((currentEdges) => currentEdges.filter((currentEdge) => currentEdge.id !== edgePendingDelete.id));
                 setEdgePendingDelete(null);
-                toast.success("Conexão removida.");
+                toast.success("ConexÃ£o removida.");
               }}
               className="rounded-xl bg-destructive px-4 py-2 font-medium text-destructive-foreground"
             >

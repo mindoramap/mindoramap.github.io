@@ -158,17 +158,6 @@ function EditorPage() {
           organizeSignal={organizeSignal}
           undoSignal={undoSignal}
         />
-        <div className="absolute bottom-4 left-4 bg-card/90 backdrop-blur border border-border rounded-lg px-3 py-2 text-xs text-muted-foreground space-y-0.5 pointer-events-none">
-          <p>
-            <kbd className="font-semibold text-foreground">Duplo-clique</kbd> no nó cria filho
-          </p>
-          <p>
-            <kbd className="font-semibold text-foreground">Tab</kbd> filho · <kbd className="font-semibold text-foreground">Enter</kbd> irmão
-          </p>
-          <p>
-            <kbd className="font-semibold text-foreground">Ctrl+Z</kbd> desfazer - <kbd className="font-semibold text-foreground">Del</kbd> remover
-          </p>
-        </div>
       </div>
     </div>
   );
