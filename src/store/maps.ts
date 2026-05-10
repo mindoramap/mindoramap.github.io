@@ -83,9 +83,68 @@ const FOLDERS_MIGRATION_PREFIX = "mm_folders_migrated_";
 const TABLE = "mind_maps";
 const FOLDERS_TABLE = "mind_folders";
 const DEFAULT_VIEWPORT: ViewportState = { x: 0, y: 0, zoom: 1 };
+let warnedAboutSchemaFallback = false;
 
 const normalizeEmail = (email: string) => email.trim().toLowerCase();
 const normalizeOptionalEmail = (email?: string) => (email ? normalizeEmail(email) : "");
+const warnSchemaFallback = () => {
+  if (warnedAboutSchemaFallback) return;
+  warnedAboutSchemaFallback = true;
+  console.warn(
+    "[maps] Supabase schema for folders/viewport is missing. Falling back to local persistence until the migration is applied."
+  );
+};
+
+const isSchemaCapabilityError = (error: unknown) => {
+  if (!error || typeof error !== "object") return false;
+
+  const details = [
+    "message" in error ? error.message : "",
+    "details" in error ? error.details : "",
+    "hint" in error ? error.hint : "",
+    "code" in error ? error.code : "",
+  ]
+    .filter((value) => typeof value === "string")
+    .join(" ")
+    .toLowerCase();
+
+  return (
+    details.includes("mind_folders") ||
+    details.includes("folder_id") ||
+    details.includes("parent_map_id") ||
+    details.includes("viewport") ||
+    details.includes("is_favorite") ||
+    details.includes("42p01") ||
+    details.includes("42703") ||
+    details.includes("pgrst204")
+  );
+};
+
+const mergeMapsById = (remoteMaps: MindMap[], localMaps: MindMap[]) => {
+  const merged = new Map<string, MindMap>();
+
+  [...remoteMaps, ...localMaps].forEach((map) => {
+    const current = merged.get(map.id);
+    if (!current || map.updatedAt >= current.updatedAt) {
+      merged.set(map.id, map);
+    }
+  });
+
+  return [...merged.values()].sort((a, b) => b.updatedAt - a.updatedAt);
+};
+
+const mergeFoldersById = (remoteFolders: MindFolder[], localFolders: MindFolder[]) => {
+  const merged = new Map<string, MindFolder>();
+
+  [...remoteFolders, ...localFolders].forEach((folder) => {
+    const current = merged.get(folder.id);
+    if (!current || folder.updatedAt >= current.updatedAt) {
+      merged.set(folder.id, folder);
+    }
+  });
+
+  return [...merged.values()].sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+};
 
 const readAllMaps = (): MindMap[] => {
   if (typeof window === "undefined") return [];
@@ -289,7 +348,13 @@ export const migrateLocalMapsToSupabase = async (owner: MapOwner) => {
   }
 
   const { error } = await supabase.from(TABLE).upsert(localMaps.map(toRow), { onConflict: "id" });
-  if (error) throw error;
+  if (error) {
+    if (isSchemaCapabilityError(error)) {
+      warnSchemaFallback();
+      return;
+    }
+    throw error;
+  }
 
   removeLocalMapsForOwner(owner);
   localStorage.setItem(migrationKey, "done");
@@ -308,7 +373,13 @@ export const migrateLocalFoldersToSupabase = async (owner: MapOwner) => {
   }
 
   const { error } = await supabase.from(FOLDERS_TABLE).upsert(localFolders.map(folderToRow), { onConflict: "id" });
-  if (error) throw error;
+  if (error) {
+    if (isSchemaCapabilityError(error)) {
+      warnSchemaFallback();
+      return;
+    }
+    throw error;
+  }
 
   removeLocalFoldersForOwner(owner);
   localStorage.setItem(migrationKey, "done");
@@ -319,6 +390,7 @@ export const loadMaps = async (owner: MapOwner): Promise<MindMap[]> => {
     return loadLocalMaps(owner).sort((a, b) => b.updatedAt - a.updatedAt);
   }
 
+  const localMaps = loadLocalMaps(owner);
   await migrateLocalFoldersToSupabase(owner);
   await migrateLocalMapsToSupabase(owner);
 
@@ -328,8 +400,14 @@ export const loadMaps = async (owner: MapOwner): Promise<MindMap[]> => {
     .eq("owner_id", owner.id)
     .order("updated_at", { ascending: false });
 
-  if (error) throw error;
-  return (data || []).map(fromRow);
+  if (error) {
+    if (isSchemaCapabilityError(error)) {
+      warnSchemaFallback();
+      return localMaps.sort((a, b) => b.updatedAt - a.updatedAt);
+    }
+    throw error;
+  }
+  return mergeMapsById((data || []).map(fromRow), localMaps);
 };
 
 export const getMap = async (id: string, owner: MapOwner) => {
@@ -337,6 +415,7 @@ export const getMap = async (id: string, owner: MapOwner) => {
     return loadLocalMaps(owner).find((map) => map.id === id);
   }
 
+  const localMap = loadLocalMaps(owner).find((map) => map.id === id);
   await migrateLocalFoldersToSupabase(owner);
   await migrateLocalMapsToSupabase(owner);
 
@@ -347,8 +426,14 @@ export const getMap = async (id: string, owner: MapOwner) => {
     .eq("owner_id", owner.id)
     .maybeSingle();
 
-  if (error) throw error;
-  return data ? fromRow(data) : undefined;
+  if (error) {
+    if (isSchemaCapabilityError(error)) {
+      warnSchemaFallback();
+      return localMap;
+    }
+    throw error;
+  }
+  return data ? fromRow(data) : localMap;
 };
 
 export const upsertMap = async (map: MindMap) => {
@@ -362,7 +447,18 @@ export const upsertMap = async (map: MindMap) => {
   }
 
   const { error } = await supabase.from(TABLE).upsert(toRow(map), { onConflict: "id" });
-  if (error) throw error;
+  if (error) {
+    if (isSchemaCapabilityError(error)) {
+      warnSchemaFallback();
+      const maps = readAllMaps();
+      const index = maps.findIndex((storedMap) => storedMap.id === map.id);
+      if (index >= 0) maps[index] = map;
+      else maps.push(map);
+      saveAllMaps(maps);
+      return;
+    }
+    throw error;
+  }
 };
 
 export const loadFolders = async (owner: MapOwner): Promise<MindFolder[]> => {
@@ -370,6 +466,7 @@ export const loadFolders = async (owner: MapOwner): Promise<MindFolder[]> => {
     return loadLocalFolders(owner).sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
   }
 
+  const localFolders = loadLocalFolders(owner);
   await migrateLocalFoldersToSupabase(owner);
 
   const { data, error } = await supabase
@@ -378,8 +475,14 @@ export const loadFolders = async (owner: MapOwner): Promise<MindFolder[]> => {
     .eq("owner_id", owner.id)
     .order("name", { ascending: true });
 
-  if (error) throw error;
-  return (data || []).map(folderFromRow);
+  if (error) {
+    if (isSchemaCapabilityError(error)) {
+      warnSchemaFallback();
+      return localFolders.sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+    }
+    throw error;
+  }
+  return mergeFoldersById((data || []).map(folderFromRow), localFolders);
 };
 
 export const upsertFolder = async (folder: MindFolder) => {
@@ -393,7 +496,18 @@ export const upsertFolder = async (folder: MindFolder) => {
   }
 
   const { error } = await supabase.from(FOLDERS_TABLE).upsert(folderToRow(folder), { onConflict: "id" });
-  if (error) throw error;
+  if (error) {
+    if (isSchemaCapabilityError(error)) {
+      warnSchemaFallback();
+      const folders = readAllFolders();
+      const index = folders.findIndex((storedFolder) => storedFolder.id === folder.id);
+      if (index >= 0) folders[index] = folder;
+      else folders.push(folder);
+      saveAllFolders(folders);
+      return;
+    }
+    throw error;
+  }
 };
 
 export const deleteFolder = async (id: string, owner: MapOwner) => {
@@ -413,10 +527,34 @@ export const deleteFolder = async (id: string, owner: MapOwner) => {
     .update({ folder_id: null })
     .eq("folder_id", id)
     .eq("owner_id", owner.id);
-  if (mapsError) throw mapsError;
+  if (mapsError) {
+    if (isSchemaCapabilityError(mapsError)) {
+      warnSchemaFallback();
+      const folders = readAllFolders().filter(
+        (folder) =>
+          !(folder.id === id && (folder.ownerId === owner.id || normalizeEmail(folder.ownerEmail) === normalizeEmail(owner.email)))
+      );
+      saveAllFolders(folders);
+      const maps = readAllMaps().map((map) => (map.folderId === id ? { ...map, folderId: null } : map));
+      saveAllMaps(maps);
+      return;
+    }
+    throw mapsError;
+  }
 
   const { error } = await supabase.from(FOLDERS_TABLE).delete().eq("id", id).eq("owner_id", owner.id);
-  if (error) throw error;
+  if (error) {
+    if (isSchemaCapabilityError(error)) {
+      warnSchemaFallback();
+      const folders = readAllFolders().filter(
+        (folder) =>
+          !(folder.id === id && (folder.ownerId === owner.id || normalizeEmail(folder.ownerEmail) === normalizeEmail(owner.email)))
+      );
+      saveAllFolders(folders);
+      return;
+    }
+    throw error;
+  }
 };
 
 export const deleteMap = async (id: string, owner: MapOwner) => {
