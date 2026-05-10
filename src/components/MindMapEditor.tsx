@@ -788,8 +788,8 @@ function EditorInner({ map, mode, orientation, connectMode, setConnectMode, orga
         />
         {showMiniMap && !miniMapMinimized && (
           <MiniMap
-            position="bottom-left"
-            style={{ bottom: isMobile ? 72 : 80, left: 12 }}
+            position="bottom-right"
+            style={{ bottom: isMobile ? 72 : 16, right: 12 }}
             className="!rounded-2xl !border !border-border !bg-card/95 !backdrop-blur-xl !shadow-[var(--shadow-soft)]"
             maskColor="oklch(0 0 0 / 0.08)"
             nodeColor={() => "oklch(0.55 0.22 280)"}
@@ -833,8 +833,7 @@ function EditorInner({ map, mode, orientation, connectMode, setConnectMode, orga
         <button
           type="button"
           data-panel-id="minimap-tab"
-          className="absolute z-20 inline-flex items-center gap-2 rounded-full border border-border/80 bg-card/95 px-3 py-2 text-xs font-medium text-foreground shadow-[var(--shadow-soft)] backdrop-blur-xl transition-colors hover:bg-muted"
-          style={{ left: panelPositions.minimap.x, top: panelPositions.minimap.y }}
+          className="absolute bottom-4 right-3 z-20 inline-flex items-center gap-2 rounded-full border border-border/80 bg-card/95 px-3 py-2 text-xs font-medium text-foreground shadow-[var(--shadow-soft)] backdrop-blur-xl transition-colors hover:bg-muted"
           onClick={toggleMiniMap}
           aria-label="Expandir Minimapa"
         >
