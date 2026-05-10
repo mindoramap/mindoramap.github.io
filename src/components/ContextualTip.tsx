@@ -1,6 +1,8 @@
 // Smart contextual hints that appear based on what the user is doing
 import { useEffect, useRef, useState } from "react";
 import { Lightbulb, X } from "lucide-react";
+// window.setTimeout returns number in browsers, not NodeJS Timeout
+type TimerId = ReturnType<typeof window.setTimeout>;
 import { cn } from "@/lib/utils";
 
 const TIPS_KEY = "mm_tips_v2_";
@@ -62,7 +64,7 @@ interface Props {
 export function ContextualTip({ userId, nodeCount, graphEdgeCount }: Props) {
   const [activeTip, setActiveTip] = useState<TipDef | null>(null);
   const [visible, setVisible] = useState(false);
-  const dismissTimerRef = useRef<ReturnType<typeof window.setTimeout> | null>(null);
+  const dismissTimerRef = useRef<number | null>(null);
 
   const dismiss = (tipId: string) => {
     markTipShown(userId, tipId);
@@ -93,7 +95,7 @@ export function ContextualTip({ userId, nodeCount, graphEdgeCount }: Props) {
   useEffect(() => {
     if (!activeTip || !visible) return;
 
-    if (dismissTimerRef.current) window.clearTimeout(dismissTimerRef.current);
+    if (dismissTimerRef.current !== null) window.clearTimeout(dismissTimerRef.current);
     dismissTimerRef.current = window.setTimeout(() => {
       dismiss(activeTip.id);
     }, 12000);

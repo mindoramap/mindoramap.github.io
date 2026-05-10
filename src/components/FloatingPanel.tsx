@@ -83,6 +83,7 @@ export function FloatingPanel({
 }: FloatingPanelProps) {
   const panelRef = useRef<HTMLDivElement | null>(null);
   const { dragging, startDrag } = useFloatingDrag(mobile, panelRef, onPositionChange);
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
 
   // Clamp panel back into viewport bounds after render or position change
   useEffect(() => {
@@ -107,7 +108,7 @@ export function FloatingPanel({
 
     return (
       <button
-        ref={panelRef as React.RefObject<HTMLButtonElement>}
+        ref={buttonRef}
         type="button"
         data-panel-id={`${id}-tab`}
         className={cn(

@@ -160,7 +160,7 @@ function MindNodeBase({ id, data, selected }: NodeProps<MindNodeData>) {
                 </code>
               ) : kind === "link" && safeUrl ? (
                 <a
-                  href={resolvedUrl}
+                  href={resolvedUrl ?? undefined}
                   target={isExternalLink ? "_blank" : undefined}
                   rel={isExternalLink ? "noreferrer" : undefined}
                   onClick={(e) => e.stopPropagation()}
