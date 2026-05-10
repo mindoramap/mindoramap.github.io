@@ -15,7 +15,7 @@ import ReactFlow, {
   type NodeMouseHandler,
   type Viewport,
 } from "reactflow";
-import { CircleHelp, Map as MiniMapIcon, PanelRightOpen } from "lucide-react";
+import { CircleHelp, Map as MiniMapIcon, PanelRightOpen, SlidersHorizontal } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -25,7 +25,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { MindNode } from "./MindNode";
+import { FloatingPanel, PanelDockItem } from "./FloatingPanel";
 import { PropertiesPanel } from "./PropertiesPanel";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { layoutTree } from "@/lib/layout";
 import { createBlankMap, upsertMap, type MindMap, type MindNodeData, type ViewportState } from "@/store/maps";
 
@@ -134,6 +136,7 @@ function getTreeHandleIds(spawnSide: "left" | "right" | "top" | "bottom") {
 }
 
 function EditorInner({ map, mode, orientation, connectMode, setConnectMode, organizeSignal, undoSignal }: Props) {
+  const isMobile = useIsMobile();
   const [nodes, setNodes, onNodesChange] = useNodesState<MindNodeData>(map.nodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(map.edges);
   const [selectedId, setSelectedId] = useState<string | null>("root");
@@ -141,9 +144,17 @@ function EditorInner({ map, mode, orientation, connectMode, setConnectMode, orga
   const [hoverId, setHoverId] = useState<string | null>(null);
   const [viewport, setViewport] = useState<ViewportState>(map.viewport);
   const [showInspector, setShowInspector] = useState(true);
-  const [showMiniMap, setShowMiniMap] = useState(true);
-  const [showHelp, setShowHelp] = useState(true);
+  const [inspectorMinimized, setInspectorMinimized] = useState(false);
+  const [showMiniMap, setShowMiniMap] = useState(!isMobile);
+  const [miniMapMinimized, setMiniMapMinimized] = useState(isMobile);
+  const [showHelp, setShowHelp] = useState(false);
+  const [helpMinimized, setHelpMinimized] = useState(true);
   const [edgePendingDelete, setEdgePendingDelete] = useState<Edge | null>(null);
+  const [panelPositions, setPanelPositions] = useState({
+    inspector: { x: 0, y: 0 },
+    minimap: { x: 0, y: 0 },
+    help: { x: 0, y: 0 },
+  });
   const { fitView } = useReactFlow();
   const historyRef = useRef<{ nodes: Node<MindNodeData>[]; edges: Edge[] }[]>([]);
   const skipHistory = useRef(false);
@@ -158,6 +169,31 @@ function EditorInner({ map, mode, orientation, connectMode, setConnectMode, orga
     setHoverId(null);
     lastSavedViewport.current = map.viewport;
   }, [map.id, map.nodes, map.edges, map.viewport, setNodes, setEdges]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const width = window.innerWidth;
+    setPanelPositions({
+      inspector: { x: Math.max(16, width - 380), y: 88 },
+      minimap: { x: 16, y: Math.max(104, window.innerHeight - 300) },
+      help: { x: 16, y: 88 },
+    });
+  }, [map.id]);
+
+  useEffect(() => {
+    if (isMobile) {
+      setShowMiniMap(true);
+      setMiniMapMinimized(true);
+      setShowHelp(true);
+      setHelpMinimized(true);
+      setInspectorMinimized(false);
+      return;
+    }
+
+    setShowMiniMap(true);
+    setShowHelp(true);
+  }, [isMobile]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -626,6 +662,22 @@ function EditorInner({ map, mode, orientation, connectMode, setConnectMode, orga
     return exists ? null : { source: selectedId, target: hoverId };
   }, [hoverId, selectedId, nodes, edges]);
 
+  const toggleInspector = useCallback(() => {
+    if (!selectedNode) return;
+    setShowInspector(true);
+    setInspectorMinimized((current) => !current);
+  }, [selectedNode]);
+
+  const toggleMiniMap = useCallback(() => {
+    setShowMiniMap(true);
+    setMiniMapMinimized((current) => !current);
+  }, []);
+
+  const toggleHelp = useCallback(() => {
+    setShowHelp(true);
+    setHelpMinimized((current) => !current);
+  }, []);
+
   return (
     <div className={`relative h-full w-full ${connectMode ? "cursor-crosshair" : ""}`}>
       <ReactFlow
@@ -651,16 +703,11 @@ function EditorInner({ map, mode, orientation, connectMode, setConnectMode, orga
         connectOnClick={false}
       >
         <Background gap={24} size={1} color="oklch(0.7 0.02 270 / 0.25)" />
-        <Controls className="!shadow-none" showInteractive={false} />
-        {showMiniMap && (
-          <MiniMap
-            className="!overflow-hidden rounded-lg !border !border-border !bg-card"
-            maskColor="oklch(0 0 0 / 0.1)"
-            nodeColor={() => "oklch(0.55 0.22 280)"}
-            pannable
-            zoomable
-          />
-        )}
+        <Controls
+          position="bottom-left"
+          className={isMobile ? "!hidden" : "!shadow-none !mb-20 !ml-3"}
+          showInteractive={false}
+        />
       </ReactFlow>
 
       {connectMode && (
@@ -676,55 +723,101 @@ function EditorInner({ map, mode, orientation, connectMode, setConnectMode, orga
       )}
 
       {selectedNode && !connectMode && showInspector && (
-        <PropertiesPanel
-          node={selectedNode}
-          onPatch={patchNode}
-          onDelete={deleteNode}
-          onKeywordConnect={keywordConnect}
-          onClose={() => setShowInspector(false)}
-        />
+        <FloatingPanel
+          id="inspector"
+          title="Propriedades"
+          icon={<SlidersHorizontal size={16} />}
+          open={showInspector}
+          minimized={inspectorMinimized}
+          mobile={isMobile}
+          position={panelPositions.inspector}
+          widthClassName="w-[340px]"
+          onToggle={toggleInspector}
+          onMinimize={() => setInspectorMinimized(true)}
+          onPositionChange={(position) => setPanelPositions((current) => ({ ...current, inspector: position }))}
+        >
+          <PropertiesPanel node={selectedNode} onPatch={patchNode} onDelete={deleteNode} onKeywordConnect={keywordConnect} />
+        </FloatingPanel>
       )}
 
-      <div className="absolute bottom-4 right-4 z-20 flex flex-col gap-2">
-        <button
-          type="button"
-          onClick={() => setShowInspector((current) => !current)}
-          className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs shadow-[var(--shadow-soft)] transition-colors ${
-            showInspector ? "bg-card text-foreground hover:bg-muted" : "bg-primary text-primary-foreground"
-          }`}
-          title={showInspector ? "Ocultar painel de propriedades" : "Mostrar painel de propriedades"}
+      {showMiniMap && (
+        <FloatingPanel
+          id="minimap"
+          title="Minimapa"
+          icon={<MiniMapIcon size={16} />}
+          open={showMiniMap}
+          minimized={miniMapMinimized}
+          mobile={isMobile}
+          position={panelPositions.minimap}
+          widthClassName="w-[280px]"
+          onToggle={toggleMiniMap}
+          onMinimize={() => setMiniMapMinimized(true)}
+          onPositionChange={(position) => setPanelPositions((current) => ({ ...current, minimap: position }))}
         >
-          <PanelRightOpen size={14} /> Mostrar painéis
-        </button>
-        <button
-          type="button"
-          onClick={() => setShowMiniMap((current) => !current)}
-          className="inline-flex items-center gap-2 rounded-full border bg-card px-3 py-2 text-xs shadow-[var(--shadow-soft)] transition-colors hover:bg-muted"
-          title={showMiniMap ? "Ocultar minimapa" : "Mostrar minimapa"}
-        >
-          <MiniMapIcon size={14} /> Minimapa
-        </button>
-        <button
-          type="button"
-          onClick={() => setShowHelp((current) => !current)}
-          className="inline-flex items-center gap-2 rounded-full border bg-card px-3 py-2 text-xs shadow-[var(--shadow-soft)] transition-colors hover:bg-muted"
-          title={showHelp ? "Ocultar ajuda" : "Mostrar ajuda"}
-        >
-          <CircleHelp size={14} /> Ajuda
-        </button>
-      </div>
+          <MiniMap
+            className="!h-[220px] !w-full !overflow-hidden rounded-2xl !border !border-border !bg-card"
+            maskColor="oklch(0 0 0 / 0.08)"
+            nodeColor={() => "oklch(0.55 0.22 280)"}
+            pannable
+            zoomable
+          />
+        </FloatingPanel>
+      )}
 
       {showHelp && (
-        <div className="absolute bottom-4 left-4 rounded-lg border border-border bg-card/90 px-3 py-2 text-xs text-muted-foreground backdrop-blur">
-          <p>
-            <kbd className="font-semibold text-foreground">Duplo-clique</kbd> no nó cria filho
-          </p>
-          <p>
-            <kbd className="font-semibold text-foreground">Tab</kbd> cria filho · <kbd className="font-semibold text-foreground">Enter</kbd> cria irmão
-          </p>
-          <p>
-            <kbd className="font-semibold text-foreground">Ctrl+Z</kbd> desfaz · <kbd className="font-semibold text-foreground">Del</kbd> remove
-          </p>
+        <FloatingPanel
+          id="help"
+          title="Ajuda rápida"
+          icon={<CircleHelp size={16} />}
+          open={showHelp}
+          minimized={helpMinimized}
+          mobile={isMobile}
+          position={panelPositions.help}
+          widthClassName="w-[290px]"
+          onToggle={toggleHelp}
+          onMinimize={() => setHelpMinimized(true)}
+          onPositionChange={(position) => setPanelPositions((current) => ({ ...current, help: position }))}
+        >
+          <div className="space-y-3 text-sm text-muted-foreground">
+            <p>
+              <kbd className="rounded bg-muted px-1.5 py-0.5 font-semibold text-foreground">Duplo-clique</kbd> no nó cria filho
+            </p>
+            <p>
+              <kbd className="rounded bg-muted px-1.5 py-0.5 font-semibold text-foreground">Tab</kbd> cria filho · <kbd className="rounded bg-muted px-1.5 py-0.5 font-semibold text-foreground">Enter</kbd> cria irmão
+            </p>
+            <p>
+              <kbd className="rounded bg-muted px-1.5 py-0.5 font-semibold text-foreground">Ctrl+Z</kbd> desfaz · <kbd className="rounded bg-muted px-1.5 py-0.5 font-semibold text-foreground">Del</kbd> remove
+            </p>
+            {isMobile && <p>Toque no nó para selecionar e use as abas inferiores para expandir os painéis.</p>}
+          </div>
+        </FloatingPanel>
+      )}
+
+      {isMobile && (
+        <div className="absolute bottom-3 left-1/2 z-20 flex max-w-[calc(100%-24px)] -translate-x-1/2 gap-2 overflow-x-auto rounded-full border border-border/80 bg-card/92 p-2 shadow-[var(--shadow-soft)] backdrop-blur-xl">
+          {selectedNode && (
+            <PanelDockItem
+              label="Propriedades"
+              icon={<PanelRightOpen size={14} />}
+              active={!inspectorMinimized}
+              minimized={inspectorMinimized}
+              onClick={toggleInspector}
+            />
+          )}
+          <PanelDockItem
+            label="Minimapa"
+            icon={<MiniMapIcon size={14} />}
+            active={!miniMapMinimized}
+            minimized={miniMapMinimized}
+            onClick={toggleMiniMap}
+          />
+          <PanelDockItem
+            label="Ajuda"
+            icon={<CircleHelp size={14} />}
+            active={!helpMinimized}
+            minimized={helpMinimized}
+            onClick={toggleHelp}
+          />
         </div>
       )}
 
@@ -764,3 +857,4 @@ export function MindMapEditor(props: Props) {
     </ReactFlowProvider>
   );
 }
+

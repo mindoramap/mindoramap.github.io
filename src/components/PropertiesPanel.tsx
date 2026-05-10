@@ -1,4 +1,3 @@
-// Properties side panel for the selected node
 import type { MindNodeData, NodeKind } from "@/store/maps";
 import { Type, CheckSquare, Code2, Link as LinkIcon, Trash2, Sparkles } from "lucide-react";
 import { sanitizeNodeUrl } from "@/lib/security";
@@ -8,17 +7,16 @@ interface Props {
   onPatch: (id: string, patch: Partial<MindNodeData>) => void;
   onDelete: (id: string) => void;
   onKeywordConnect: (id: string, scope: "one" | "all") => void;
-  onClose: () => void;
 }
 
 const KINDS: { id: NodeKind; label: string; icon: React.ReactNode }[] = [
   { id: "text", label: "Texto", icon: <Type size={14} /> },
   { id: "checklist", label: "Tarefa", icon: <CheckSquare size={14} /> },
-  { id: "code", label: "Codigo", icon: <Code2 size={14} /> },
+  { id: "code", label: "Código", icon: <Code2 size={14} /> },
   { id: "link", label: "Link", icon: <LinkIcon size={14} /> },
 ];
 
-export function PropertiesPanel({ node, onPatch, onDelete, onKeywordConnect, onClose }: Props) {
+export function PropertiesPanel({ node, onPatch, onDelete, onKeywordConnect }: Props) {
   if (!node) return null;
   const { id, data } = node;
   const kind = data.kind || "text";
@@ -27,79 +25,79 @@ export function PropertiesPanel({ node, onPatch, onDelete, onKeywordConnect, onC
   const showInvalidUrl = Boolean(rawUrl && !sanitizedUrl);
 
   return (
-    <aside className="absolute top-4 right-4 w-72 bg-card/95 backdrop-blur border border-border rounded-2xl shadow-[var(--shadow-soft)] p-4 z-20 animate-in fade-in slide-in-from-right-4">
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-semibold">Propriedades</h3>
-        <button onClick={onClose} className="text-xs text-muted-foreground hover:text-foreground">
-          Fechar
-        </button>
+    <div className="space-y-4">
+      <div>
+        <label className="text-xs text-muted-foreground">Rótulo</label>
+        <input
+          value={data.label}
+          onChange={(event) => onPatch(id, { label: event.target.value })}
+          className="mt-1 w-full rounded-xl border border-border bg-input px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+        />
       </div>
 
-      <label className="text-xs text-muted-foreground">Rótulo</label>
-      <input
-        value={data.label}
-        onChange={(e) => onPatch(id, { label: e.target.value })}
-        className="w-full mt-1 mb-3 px-2 py-1.5 rounded-md bg-input border border-border text-sm outline-none focus:ring-2 focus:ring-ring"
-      />
-
-      <label className="text-xs text-muted-foreground">Tipo</label>
-      <div className="grid grid-cols-4 gap-1 mt-1 mb-3">
-        {KINDS.map((entry) => (
-          <button
-            key={entry.id}
-            onClick={() => onPatch(id, { kind: entry.id })}
-            className={`flex flex-col items-center gap-1 py-2 rounded-md border text-[10px] transition-colors ${
-              kind === entry.id ? "border-primary bg-primary/10 text-primary" : "border-border hover:bg-muted"
-            }`}
-          >
-            {entry.icon}
-            {entry.label}
-          </button>
-        ))}
+      <div>
+        <label className="text-xs text-muted-foreground">Tipo</label>
+        <div className="mt-2 grid grid-cols-4 gap-2">
+          {KINDS.map((entry) => (
+            <button
+              key={entry.id}
+              type="button"
+              onClick={() => onPatch(id, { kind: entry.id })}
+              className={`flex flex-col items-center gap-1 rounded-xl border py-2 text-[10px] transition-colors ${
+                kind === entry.id ? "border-primary bg-primary/10 text-primary" : "border-border hover:bg-muted"
+              }`}
+            >
+              {entry.icon}
+              {entry.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {kind === "link" && (
-        <>
+        <div>
           <label className="text-xs text-muted-foreground">URL</label>
           <input
             value={rawUrl}
-            onChange={(e) => onPatch(id, { url: e.target.value.trim() })}
+            onChange={(event) => onPatch(id, { url: event.target.value.trim() })}
             placeholder="https://... ou /editor/..."
-            className="w-full mt-1 mb-3 px-2 py-1.5 rounded-md bg-input border border-border text-sm outline-none focus:ring-2 focus:ring-ring"
+            className="mt-1 w-full rounded-xl border border-border bg-input px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
           />
           {showInvalidUrl && (
-            <p className="text-xs text-destructive -mt-2 mb-3">
+            <p className="mt-2 text-xs text-destructive">
               Use apenas links `https://`, `http://` ou caminhos internos iniciando com `/`.
             </p>
           )}
-        </>
+        </div>
       )}
 
       {kind === "checklist" && (
-        <label className="flex items-center gap-2 text-sm mb-3">
+        <label className="flex items-center gap-2 text-sm">
           <input
             type="checkbox"
             checked={!!data.checked}
-            onChange={(e) => onPatch(id, { checked: e.target.checked })}
+            onChange={(event) => onPatch(id, { checked: event.target.checked })}
           />
           Concluído
         </label>
       )}
 
-      <div className="border-t border-border pt-3 mt-2 space-y-2">
-        <p className="text-xs font-medium flex items-center gap-1.5">
+      <div className="space-y-2 rounded-2xl border border-border/70 bg-background/50 p-3">
+        <p className="flex items-center gap-1.5 text-xs font-medium text-foreground">
           <Sparkles size={12} className="text-primary" /> Conectar por palavra-chave
         </p>
-        <div className="flex gap-1">
+        <div className="flex gap-2">
           <button
+            type="button"
             onClick={() => onKeywordConnect(id, "one")}
-            className="flex-1 px-2 py-1.5 rounded-md border border-border hover:bg-muted text-xs"
+            className="flex-1 rounded-lg border border-border px-2 py-2 text-xs hover:bg-muted"
           >
             Sugerir 1
           </button>
           <button
+            type="button"
             onClick={() => onKeywordConnect(id, "all")}
-            className="flex-1 px-2 py-1.5 rounded-md border border-border hover:bg-muted text-xs"
+            className="flex-1 rounded-lg border border-border px-2 py-2 text-xs hover:bg-muted"
           >
             Conectar todos
           </button>
@@ -108,12 +106,13 @@ export function PropertiesPanel({ node, onPatch, onDelete, onKeywordConnect, onC
 
       {!data.isRoot && (
         <button
+          type="button"
           onClick={() => onDelete(id)}
-          className="w-full mt-3 px-2 py-1.5 rounded-md border border-destructive/40 text-destructive hover:bg-destructive/10 text-xs flex items-center justify-center gap-1.5"
+          className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-destructive/40 px-3 py-2 text-xs text-destructive hover:bg-destructive/10"
         >
           <Trash2 size={12} /> Excluir nó
         </button>
       )}
-    </aside>
+    </div>
   );
 }
