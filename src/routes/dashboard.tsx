@@ -1,5 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 import {
   BookOpen,
   ChevronDown,
@@ -16,6 +17,14 @@ import {
   Trash2,
 } from "lucide-react";
 import { Header } from "@/components/Header";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useAuth } from "@/store/auth";
 import {
   createBlankMap,
@@ -44,12 +53,17 @@ function DashboardPage() {
   const [loadingMaps, setLoadingMaps] = useState(true);
   const [showMapModal, setShowMapModal] = useState(false);
   const [showFolderModal, setShowFolderModal] = useState(false);
+  const [folderModalMode, setFolderModalMode] = useState<"create" | "rename">("create");
+  const [folderBeingEdited, setFolderBeingEdited] = useState<MindFolder | null>(null);
+  const [confirmDeleteFolder, setConfirmDeleteFolder] = useState<MindFolder | null>(null);
+  const [confirmDeleteMap, setConfirmDeleteMap] = useState<MindMap | null>(null);
   const [title, setTitle] = useState("");
   const [folderName, setFolderName] = useState("");
   const [mode, setMode] = useState<MapMode>("brainstorm");
   const [search, setSearch] = useState("");
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({});
+  const [draggedMapId, setDraggedMapId] = useState<string | null>(null);
 
   useEffect(() => {
     void init();
@@ -86,13 +100,17 @@ function DashboardPage() {
         if (!cancelled) {
           setMaps(loadedMaps.sort((a, b) => b.updatedAt - a.updatedAt));
           setFolders(loadedFolders);
-          setExpandedFolders(Object.fromEntries(loadedFolders.map((folder) => [folder.id, true])));
+          setExpandedFolders((current) => ({
+            ...Object.fromEntries(loadedFolders.map((folder) => [folder.id, true])),
+            ...current,
+          }));
         }
       } catch (error) {
         console.error("Falha ao carregar dashboard", error);
         if (!cancelled) {
           setMaps([]);
           setFolders([]);
+          toast.error("Não foi possível carregar os mapas.");
         }
       } finally {
         if (!cancelled) setLoadingMaps(false);
@@ -130,6 +148,8 @@ function DashboardPage() {
     return chain;
   }, [folderMap, selectedFolderId]);
 
+  const favoriteMaps = useMemo(() => maps.filter((map) => map.isFavorite), [maps]);
+
   const filteredMaps = useMemo(() => {
     const normalizedSearch = search.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase().trim();
     return maps
@@ -163,51 +183,61 @@ function DashboardPage() {
       folderId: selectedFolderId,
     });
     await upsertMap(map);
+    setShowMapModal(false);
+    toast.success("Mapa criado com sucesso.");
     navigate({ to: "/editor/$id", params: { id: map.id } });
   };
 
-  const createFolderHandler = async (event: React.FormEvent) => {
+  const submitFolderModal = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!user) return;
 
-    const folder = createFolder({ id: user.id, email: user.email }, folderName || "Nova pasta", selectedFolderId);
-    await upsertFolder(folder);
-    setFolders((current) => [...current, folder].sort((a, b) => a.name.localeCompare(b.name, "pt-BR")));
-    setExpandedFolders((current) => ({ ...current, [folder.id]: true }));
+    if (folderModalMode === "create") {
+      const folder = createFolder({ id: user.id, email: user.email }, folderName || "Nova pasta", selectedFolderId);
+      await upsertFolder(folder);
+      setFolders((current) => [...current, folder].sort((a, b) => a.name.localeCompare(b.name, "pt-BR")));
+      setExpandedFolders((current) => ({ ...current, [folder.id]: true }));
+      toast.success("Pasta criada.");
+    } else if (folderBeingEdited) {
+      const updatedFolder = { ...folderBeingEdited, name: folderName.trim() || folderBeingEdited.name, updatedAt: Date.now() };
+      await upsertFolder(updatedFolder);
+      await refreshData();
+      toast.success("Pasta renomeada.");
+    }
+
     setFolderName("");
+    setFolderBeingEdited(null);
     setShowFolderModal(false);
   };
 
-  const renameFolderHandler = async (folder: MindFolder) => {
-    const nextName = window.prompt("Novo nome da pasta", folder.name)?.trim();
-    if (!nextName || nextName === folder.name) return;
-    const updatedFolder = { ...folder, name: nextName, updatedAt: Date.now() };
-    await upsertFolder(updatedFolder);
-    await refreshData();
+  const toggleFolder = (folderId: string) => {
+    setExpandedFolders((current) => ({ ...current, [folderId]: !current[folderId] }));
   };
 
-  const deleteFolderHandler = async (folder: MindFolder) => {
-    if (!user) return;
-    if (!confirm(`Excluir a pasta "${folder.name}"? Os mapas voltarão para a raiz.`)) return;
-    await deleteFolder(folder.id, { id: user.id, email: user.email });
-    if (selectedFolderId === folder.id) setSelectedFolderId(null);
-    await refreshData();
+  const openCreateFolderModal = () => {
+    setFolderModalMode("create");
+    setFolderName("");
+    setFolderBeingEdited(null);
+    setShowFolderModal(true);
   };
 
-  const removeMapHandler = async (id: string) => {
-    if (!user) return;
-    if (!confirm("Excluir este mapa?")) return;
-    await deleteMap(id, { id: user.id, email: user.email });
+  const openRenameFolderModal = (folder: MindFolder) => {
+    setFolderModalMode("rename");
+    setFolderName(folder.name);
+    setFolderBeingEdited(folder);
+    setShowFolderModal(true);
+  };
+
+  const toggleFavorite = async (map: MindMap) => {
+    await upsertMap({ ...map, isFavorite: !map.isFavorite, updatedAt: Date.now() });
     await refreshData();
+    toast.success(map.isFavorite ? "Mapa removido dos favoritos." : "Mapa adicionado aos favoritos.");
   };
 
   const moveMapHandler = async (map: MindMap, folderId: string | null) => {
     await upsertMap({ ...map, folderId, updatedAt: Date.now() });
     await refreshData();
-  };
-
-  const toggleFolder = (folderId: string) => {
-    setExpandedFolders((current) => ({ ...current, [folderId]: !current[folderId] }));
+    toast.success(folderId ? "Mapa movido para a pasta selecionada." : "Mapa movido para a raiz.");
   };
 
   const renderFolderTree = (parentId: string | null = null, depth = 0): React.ReactNode =>
@@ -215,17 +245,35 @@ function DashboardPage() {
       const isExpanded = expandedFolders[folder.id] ?? true;
       const isSelected = selectedFolderId === folder.id;
       const children = folderChildren.get(folder.id) || [];
+      const isDroppableTarget = draggedMapId !== null;
 
       return (
         <div key={folder.id}>
           <div
             className={`group flex items-center gap-2 rounded-xl px-2 py-2 text-sm transition-colors ${
               isSelected ? "bg-primary/10 text-primary" : "hover:bg-muted"
-            }`}
+            } ${isDroppableTarget ? "data-[drop=true]:ring-2 data-[drop=true]:ring-primary/40" : ""}`}
             style={{ paddingLeft: `${depth * 14 + 8}px` }}
+            data-drop={isDroppableTarget || undefined}
+            onDragOver={(event) => {
+              if (!draggedMapId) return;
+              event.preventDefault();
+            }}
+            onDrop={(event) => {
+              event.preventDefault();
+              if (!draggedMapId) return;
+              const droppedMap = maps.find((entry) => entry.id === draggedMapId);
+              setDraggedMapId(null);
+              if (!droppedMap) return;
+              void moveMapHandler(droppedMap, folder.id);
+            }}
           >
             <button type="button" onClick={() => toggleFolder(folder.id)} className="text-muted-foreground">
-              {children.length > 0 ? (isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />) : <span className="block w-[14px]" />}
+              {children.length > 0 ? (
+                isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />
+              ) : (
+                <span className="block w-[14px]" />
+              )}
             </button>
             <button
               type="button"
@@ -237,7 +285,7 @@ function DashboardPage() {
             </button>
             <button
               type="button"
-              onClick={() => renameFolderHandler(folder)}
+              onClick={() => openRenameFolderModal(folder)}
               className="opacity-0 transition-opacity group-hover:opacity-100 text-muted-foreground hover:text-foreground"
               title="Renomear pasta"
             >
@@ -245,7 +293,7 @@ function DashboardPage() {
             </button>
             <button
               type="button"
-              onClick={() => deleteFolderHandler(folder)}
+              onClick={() => setConfirmDeleteFolder(folder)}
               className="opacity-0 transition-opacity group-hover:opacity-100 text-muted-foreground hover:text-destructive"
               title="Excluir pasta"
             >
@@ -274,7 +322,7 @@ function DashboardPage() {
               </div>
               <button
                 type="button"
-                onClick={() => setShowFolderModal(true)}
+                onClick={openCreateFolderModal}
                 className="inline-flex items-center gap-1 rounded-full border border-border px-3 py-1.5 text-xs font-medium hover:bg-muted"
               >
                 <Plus size={12} /> Pasta
@@ -288,10 +336,49 @@ function DashboardPage() {
                 selectedFolderId === null ? "bg-primary/10 text-primary" : "hover:bg-muted"
               }`}
             >
-              <Star size={16} /> Todos os mapas
+              <Folder size={16} /> Todos os mapas
             </button>
 
+            <div
+              className="mb-3 rounded-xl px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted"
+              onDragOver={(event) => {
+                if (!draggedMapId) return;
+                event.preventDefault();
+              }}
+              onDrop={(event) => {
+                event.preventDefault();
+                if (!draggedMapId) return;
+                const droppedMap = maps.find((entry) => entry.id === draggedMapId);
+                setDraggedMapId(null);
+                if (!droppedMap) return;
+                void moveMapHandler(droppedMap, null);
+              }}
+            >
+              Arraste mapas aqui para mover para a raiz
+            </div>
+
             <div className="space-y-1">{renderFolderTree()}</div>
+
+            <div className="mt-6 border-t border-border pt-4">
+              <h3 className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Favoritos</h3>
+              {favoriteMaps.length === 0 ? (
+                <p className="text-xs text-muted-foreground">Marque mapas importantes para acessá-los aqui.</p>
+              ) : (
+                <div className="space-y-1">
+                  {favoriteMaps.slice(0, 5).map((map) => (
+                    <button
+                      key={map.id}
+                      type="button"
+                      onClick={() => navigate({ to: "/editor/$id", params: { id: map.id } })}
+                      className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm transition-colors hover:bg-muted"
+                    >
+                      <Star size={14} className="fill-current text-amber-500" />
+                      <span className="truncate">{map.title}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </aside>
 
           <section className="min-w-0 rounded-3xl border border-border bg-card/90 p-5 shadow-[var(--shadow-soft)] backdrop-blur">
@@ -314,7 +401,9 @@ function DashboardPage() {
                   {selectedFolderId ? folderMap.get(selectedFolderId)?.name || "Pasta" : "Seus mapas"}
                 </h1>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  {filteredMaps.length === 0 ? "Crie mapas, organize por pastas e mantenha tudo fácil de encontrar." : `${filteredMaps.length} mapa(s) nesta visão`}
+                  {filteredMaps.length === 0
+                    ? "Crie mapas, organize por pastas e mantenha tudo fácil de encontrar."
+                    : `${filteredMaps.length} mapa(s) nesta visão`}
                 </p>
               </div>
 
@@ -356,25 +445,31 @@ function DashboardPage() {
                 {filteredMaps.map((map) => (
                   <div
                     key={map.id}
+                    draggable
+                    onDragStart={() => setDraggedMapId(map.id)}
+                    onDragEnd={() => setDraggedMapId(null)}
                     className="group rounded-2xl border border-border bg-background/70 p-5 transition-all hover:border-primary/60 hover:shadow-[var(--shadow-soft)]"
                   >
-                    <button
-                      type="button"
-                      onClick={() => navigate({ to: "/editor/$id", params: { id: map.id } })}
-                      className="w-full text-left"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <h3 className="font-semibold">{map.title}</h3>
-                          <p className="mt-2 text-xs text-muted-foreground">
-                            {map.nodes.length} nós · {new Date(map.updatedAt).toLocaleDateString("pt-BR")}
-                          </p>
-                        </div>
-                        <span className="rounded-full bg-muted px-2 py-1 text-[10px] uppercase tracking-wide text-muted-foreground">
-                          {map.mode}
-                        </span>
-                      </div>
-                    </button>
+                    <div className="flex items-start justify-between gap-3">
+                      <button
+                        type="button"
+                        onClick={() => navigate({ to: "/editor/$id", params: { id: map.id } })}
+                        className="flex-1 text-left"
+                      >
+                        <h3 className="font-semibold">{map.title}</h3>
+                        <p className="mt-2 text-xs text-muted-foreground">
+                          {map.nodes.length} nós · {new Date(map.updatedAt).toLocaleDateString("pt-BR")}
+                        </p>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void toggleFavorite(map)}
+                        className={`rounded-full p-2 transition-colors ${map.isFavorite ? "text-amber-500" : "text-muted-foreground hover:text-amber-500"}`}
+                        title={map.isFavorite ? "Remover dos favoritos" : "Adicionar aos favoritos"}
+                      >
+                        <Star size={16} className={map.isFavorite ? "fill-current" : ""} />
+                      </button>
+                    </div>
 
                     <div className="mt-4 flex items-center gap-2">
                       <select
@@ -391,12 +486,17 @@ function DashboardPage() {
                       </select>
                       <button
                         type="button"
-                        onClick={() => void removeMapHandler(map.id)}
+                        onClick={() => setConfirmDeleteMap(map)}
                         className="grid h-9 w-9 place-items-center rounded-lg border border-border text-muted-foreground transition-colors hover:border-destructive/40 hover:text-destructive"
                         aria-label="Excluir mapa"
                       >
                         <Trash2 size={16} />
                       </button>
+                    </div>
+
+                    <div className="mt-3 flex items-center justify-between text-[11px] text-muted-foreground">
+                      <span className="rounded-full bg-muted px-2 py-1 uppercase tracking-wide">{map.mode}</span>
+                      <span>{map.parentMapId ? "Submapa" : "Mapa raiz"}</span>
                     </div>
                   </div>
                 ))}
@@ -406,22 +506,22 @@ function DashboardPage() {
         </div>
       </main>
 
-      {showMapModal && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 px-4 backdrop-blur-sm">
-          <form onSubmit={createMap} className="w-full max-w-md rounded-3xl border border-border bg-card p-6 shadow-[var(--shadow-soft)]">
-            <h2 className="text-lg font-semibold">Novo mapa mental</h2>
-            <p className="mt-1 text-sm text-muted-foreground">Defina o título, o modo e a pasta inicial do mapa.</p>
-
+      <Dialog open={showMapModal} onOpenChange={setShowMapModal}>
+        <DialogContent className="rounded-3xl">
+          <DialogHeader>
+            <DialogTitle>Novo mapa mental</DialogTitle>
+            <DialogDescription>Defina o título, o modo e a pasta inicial do mapa.</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={createMap} className="space-y-4">
             <input
               autoFocus
               required
               value={title}
               onChange={(event) => setTitle(event.target.value)}
               placeholder="Título do mapa"
-              className="mt-4 w-full rounded-xl border border-border bg-input px-3 py-2.5 outline-none focus:ring-2 focus:ring-ring"
+              className="w-full rounded-xl border border-border bg-input px-3 py-2.5 outline-none focus:ring-2 focus:ring-ring"
             />
-
-            <div className="mt-4">
+            <div>
               <p className="mb-2 text-xs text-muted-foreground">Modo de uso</p>
               <div className="grid grid-cols-3 gap-2">
                 {([
@@ -444,43 +544,122 @@ function DashboardPage() {
                 ))}
               </div>
             </div>
-
-            <div className="mt-4 flex justify-end gap-2">
+            <DialogFooter>
               <button type="button" onClick={() => setShowMapModal(false)} className="rounded-xl px-4 py-2 hover:bg-muted">
                 Cancelar
               </button>
               <button className="rounded-xl bg-[image:var(--gradient-hero)] px-4 py-2 font-medium text-primary-foreground">
                 Criar
               </button>
-            </div>
+            </DialogFooter>
           </form>
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
 
-      {showFolderModal && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 px-4 backdrop-blur-sm">
-          <form onSubmit={createFolderHandler} className="w-full max-w-md rounded-3xl border border-border bg-card p-6 shadow-[var(--shadow-soft)]">
-            <h2 className="text-lg font-semibold">Nova pasta</h2>
-            <p className="mt-1 text-sm text-muted-foreground">Crie uma pasta para organizar os mapas desta área.</p>
+      <Dialog
+        open={showFolderModal}
+        onOpenChange={(open) => {
+          setShowFolderModal(open);
+          if (!open) {
+            setFolderName("");
+            setFolderBeingEdited(null);
+          }
+        }}
+      >
+        <DialogContent className="rounded-3xl">
+          <DialogHeader>
+            <DialogTitle>{folderModalMode === "create" ? "Nova pasta" : "Renomear pasta"}</DialogTitle>
+            <DialogDescription>
+              {folderModalMode === "create"
+                ? "Crie uma pasta para organizar os mapas desta área."
+                : "Atualize o nome da pasta para manter sua organização clara."}
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={submitFolderModal} className="space-y-4">
             <input
               autoFocus
               required
               value={folderName}
               onChange={(event) => setFolderName(event.target.value)}
               placeholder="Nome da pasta"
-              className="mt-4 w-full rounded-xl border border-border bg-input px-3 py-2.5 outline-none focus:ring-2 focus:ring-ring"
+              className="w-full rounded-xl border border-border bg-input px-3 py-2.5 outline-none focus:ring-2 focus:ring-ring"
             />
-            <div className="mt-4 flex justify-end gap-2">
+            <DialogFooter>
               <button type="button" onClick={() => setShowFolderModal(false)} className="rounded-xl px-4 py-2 hover:bg-muted">
                 Cancelar
               </button>
               <button className="rounded-xl bg-[image:var(--gradient-hero)] px-4 py-2 font-medium text-primary-foreground">
-                Criar pasta
+                {folderModalMode === "create" ? "Criar pasta" : "Salvar"}
               </button>
-            </div>
+            </DialogFooter>
           </form>
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={Boolean(confirmDeleteFolder)} onOpenChange={(open) => !open && setConfirmDeleteFolder(null)}>
+        <DialogContent className="rounded-3xl">
+          <DialogHeader>
+            <DialogTitle>Excluir pasta</DialogTitle>
+            <DialogDescription>
+              {confirmDeleteFolder
+                ? `A pasta "${confirmDeleteFolder.name}" será excluída e os mapas voltarão para a raiz.`
+                : ""}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <button type="button" onClick={() => setConfirmDeleteFolder(null)} className="rounded-xl px-4 py-2 hover:bg-muted">
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (!confirmDeleteFolder || !user) return;
+                void (async () => {
+                  await deleteFolder(confirmDeleteFolder.id, { id: user.id, email: user.email });
+                  if (selectedFolderId === confirmDeleteFolder.id) setSelectedFolderId(null);
+                  setConfirmDeleteFolder(null);
+                  await refreshData();
+                  toast.success("Pasta excluída.");
+                })();
+              }}
+              className="rounded-xl bg-destructive px-4 py-2 font-medium text-destructive-foreground"
+            >
+              Excluir
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={Boolean(confirmDeleteMap)} onOpenChange={(open) => !open && setConfirmDeleteMap(null)}>
+        <DialogContent className="rounded-3xl">
+          <DialogHeader>
+            <DialogTitle>Excluir mapa</DialogTitle>
+            <DialogDescription>
+              {confirmDeleteMap ? `O mapa "${confirmDeleteMap.title}" será removido permanentemente.` : ""}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <button type="button" onClick={() => setConfirmDeleteMap(null)} className="rounded-xl px-4 py-2 hover:bg-muted">
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (!confirmDeleteMap || !user) return;
+                void (async () => {
+                  await deleteMap(confirmDeleteMap.id, { id: user.id, email: user.email });
+                  setConfirmDeleteMap(null);
+                  await refreshData();
+                  toast.success("Mapa excluído.");
+                })();
+              }}
+              className="rounded-xl bg-destructive px-4 py-2 font-medium text-destructive-foreground"
+            >
+              Excluir
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

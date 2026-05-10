@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 import ReactFlow, {
   Background,
   Controls,
@@ -15,6 +16,14 @@ import ReactFlow, {
   type Viewport,
 } from "reactflow";
 import { CircleHelp, Map as MiniMapIcon, PanelRightOpen } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { MindNode } from "./MindNode";
 import { PropertiesPanel } from "./PropertiesPanel";
 import { layoutTree } from "@/lib/layout";
@@ -30,7 +39,6 @@ interface Props {
   setConnectMode: (b: boolean) => void;
   organizeSignal: number;
   undoSignal: number;
-  exposeNodes?: (n: Node<MindNodeData>[]) => void;
 }
 
 function tokenize(value: string): string[] {
@@ -61,11 +69,7 @@ function getDescendantIds(nodeId: string, edges: Edge[]): Set<string> {
   return descendants;
 }
 
-function overlapsAnyNode(
-  position: { x: number; y: number },
-  nodes: Node<MindNodeData>[],
-  ignoreNodeIds: Set<string>
-) {
+function overlapsAnyNode(position: { x: number; y: number }, nodes: Node<MindNodeData>[], ignoreNodeIds: Set<string>) {
   const minHorizontalGap = 210;
   const minVerticalGap = 110;
 
@@ -139,6 +143,7 @@ function EditorInner({ map, mode, orientation, connectMode, setConnectMode, orga
   const [showInspector, setShowInspector] = useState(true);
   const [showMiniMap, setShowMiniMap] = useState(true);
   const [showHelp, setShowHelp] = useState(true);
+  const [edgePendingDelete, setEdgePendingDelete] = useState<Edge | null>(null);
   const { fitView } = useReactFlow();
   const historyRef = useRef<{ nodes: Node<MindNodeData>[]; edges: Edge[] }[]>([]);
   const skipHistory = useRef(false);
@@ -160,7 +165,6 @@ function EditorInner({ map, mode, orientation, connectMode, setConnectMode, orga
         console.error("Falha ao salvar mapa", error);
       });
     }, 300);
-
     return () => window.clearTimeout(timer);
   }, [nodes, edges, viewport, map]);
 
@@ -212,7 +216,9 @@ function EditorInner({ map, mode, orientation, connectMode, setConnectMode, orga
   useEffect(() => {
     const handler = (event: Event) => {
       const { id, patch } = (event as CustomEvent).detail as { id: string; patch: Partial<MindNodeData> };
-      setNodes((currentNodes) => currentNodes.map((node) => (node.id === id ? { ...node, data: { ...node.data, ...patch } } : node)));
+      setNodes((currentNodes) =>
+        currentNodes.map((node) => (node.id === id ? { ...node, data: { ...node.data, ...patch } } : node))
+      );
     };
     window.addEventListener("mm-node-update", handler);
     return () => window.removeEventListener("mm-node-update", handler);
@@ -427,7 +433,9 @@ function EditorInner({ map, mode, orientation, connectMode, setConnectMode, orga
         if (id === "root") return;
         const idsToRemove = getDescendantIds(id, edges);
         setNodes((currentNodes) => currentNodes.filter((node) => !idsToRemove.has(node.id)));
-        setEdges((currentEdges) => currentEdges.filter((edge) => !idsToRemove.has(edge.source) && !idsToRemove.has(edge.target)));
+        setEdges((currentEdges) =>
+          currentEdges.filter((edge) => !idsToRemove.has(edge.source) && !idsToRemove.has(edge.target))
+        );
         setSelectedId(null);
         return;
       }
@@ -451,8 +459,10 @@ function EditorInner({ map, mode, orientation, connectMode, setConnectMode, orga
             url: `/editor/${linkedMap.id}`,
             linkedMapId: linkedMap.id,
           });
+          toast.success("Submapa criado com sucesso.");
         })().catch((error) => {
           console.error("Falha ao criar mapa conectado", error);
+          toast.error("Não foi possível criar o submapa agora.");
         });
       }
     };
@@ -492,7 +502,9 @@ function EditorInner({ map, mode, orientation, connectMode, setConnectMode, orga
         event.preventDefault();
         const idsToRemove = getDescendantIds(selectedId, edges);
         setNodes((currentNodes) => currentNodes.filter((node) => !idsToRemove.has(node.id)));
-        setEdges((currentEdges) => currentEdges.filter((edge) => !idsToRemove.has(edge.source) && !idsToRemove.has(edge.target)));
+        setEdges((currentEdges) =>
+          currentEdges.filter((edge) => !idsToRemove.has(edge.source) && !idsToRemove.has(edge.target))
+        );
         setSelectedId(null);
       }
     };
@@ -503,7 +515,9 @@ function EditorInner({ map, mode, orientation, connectMode, setConnectMode, orga
 
   const patchNode = useCallback(
     (id: string, patch: Partial<MindNodeData>) => {
-      setNodes((currentNodes) => currentNodes.map((node) => (node.id === id ? { ...node, data: { ...node.data, ...patch } } : node)));
+      setNodes((currentNodes) =>
+        currentNodes.map((node) => (node.id === id ? { ...node, data: { ...node.data, ...patch } } : node))
+      );
     },
     [setNodes]
   );
@@ -513,7 +527,9 @@ function EditorInner({ map, mode, orientation, connectMode, setConnectMode, orga
       if (id === "root") return;
       const idsToRemove = getDescendantIds(id, edges);
       setNodes((currentNodes) => currentNodes.filter((node) => !idsToRemove.has(node.id)));
-      setEdges((currentEdges) => currentEdges.filter((edge) => !idsToRemove.has(edge.source) && !idsToRemove.has(edge.target)));
+      setEdges((currentEdges) =>
+        currentEdges.filter((edge) => !idsToRemove.has(edge.source) && !idsToRemove.has(edge.target))
+      );
       setSelectedId(null);
     },
     [edges, setNodes, setEdges]
@@ -526,7 +542,7 @@ function EditorInner({ map, mode, orientation, connectMode, setConnectMode, orga
 
       const tokens = new Set(tokenize(source.data.label));
       if (tokens.size === 0) {
-        alert("O nó precisa ter palavras significativas.");
+        toast.warning("O nó precisa ter palavras significativas para sugerir conexões.");
         return;
       }
 
@@ -541,7 +557,7 @@ function EditorInner({ map, mode, orientation, connectMode, setConnectMode, orga
         .sort((left, right) => right.score - left.score);
 
       if (scored.length === 0) {
-        alert("Nenhum nó com palavra-chave em comum.");
+        toast.info("Nenhum nó com palavra-chave em comum foi encontrado.");
         return;
       }
 
@@ -566,16 +582,13 @@ function EditorInner({ map, mode, orientation, connectMode, setConnectMode, orga
 
       if (newEdges.length > 0) {
         setEdges((currentEdges) => [...currentEdges, ...newEdges]);
+        toast.success(
+          scope === "one" ? "Conexão sugerida adicionada." : `${newEdges.length} conexões por palavra-chave foram criadas.`
+        );
       }
     },
     [nodes, edges, setEdges]
   );
-
-  useEffect(() => {
-    const handler = () => window.dispatchEvent(new CustomEvent("mm-undo-internal"));
-    window.addEventListener("mm-undo", handler);
-    return () => window.removeEventListener("mm-undo", handler);
-  }, []);
 
   const persistViewport = useCallback((nextViewport: Viewport | ViewportState) => {
     const normalized = {
@@ -631,11 +644,7 @@ function EditorInner({ map, mode, orientation, connectMode, setConnectMode, orga
           setPendingSource(null);
         }}
         onMoveEnd={(_, nextViewport) => persistViewport(nextViewport)}
-        onEdgeClick={(_, edge) => {
-          if (confirm("Remover esta conexão?")) {
-            setEdges((currentEdges) => currentEdges.filter((currentEdge) => currentEdge.id !== edge.id));
-          }
-        }}
+        onEdgeClick={(_, edge) => setEdgePendingDelete(edge)}
         nodeTypes={nodeTypes}
         defaultViewport={map.viewport}
         proOptions={{ hideAttribution: true }}
@@ -720,6 +729,32 @@ function EditorInner({ map, mode, orientation, connectMode, setConnectMode, orga
           </p>
         </div>
       )}
+
+      <Dialog open={Boolean(edgePendingDelete)} onOpenChange={(open) => !open && setEdgePendingDelete(null)}>
+        <DialogContent className="rounded-3xl">
+          <DialogHeader>
+            <DialogTitle>Remover conexão</DialogTitle>
+            <DialogDescription>Esta conexão será removida do mapa atual.</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <button type="button" onClick={() => setEdgePendingDelete(null)} className="rounded-xl px-4 py-2 hover:bg-muted">
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (!edgePendingDelete) return;
+                setEdges((currentEdges) => currentEdges.filter((currentEdge) => currentEdge.id !== edgePendingDelete.id));
+                setEdgePendingDelete(null);
+                toast.success("Conexão removida.");
+              }}
+              className="rounded-xl bg-destructive px-4 py-2 font-medium text-destructive-foreground"
+            >
+              Remover
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

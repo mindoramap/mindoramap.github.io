@@ -31,6 +31,7 @@ export interface MindMap {
   title: string;
   folderId: string | null;
   parentMapId?: string | null;
+  isFavorite: boolean;
   mode: MapMode;
   updatedAt: number;
   viewport: ViewportState;
@@ -56,6 +57,7 @@ interface MindMapRow {
   title: string;
   folder_id: string | null;
   parent_map_id: string | null;
+  is_favorite: boolean | null;
   mode: MapMode;
   updated_at: string;
   viewport: ViewportState | null;
@@ -117,6 +119,7 @@ const normalizeLocalMap = (map: Partial<MindMap>, owner: MapOwner): MindMap => {
     title: map.title || "Sem titulo",
     folderId: map.folderId || null,
     parentMapId: map.parentMapId || null,
+    isFavorite: Boolean(map.isFavorite),
     mode: (map.mode as MapMode) || "brainstorm",
     updatedAt: typeof map.updatedAt === "number" ? map.updatedAt : Date.now(),
     viewport:
@@ -228,6 +231,7 @@ const toRow = (map: MindMap): MindMapRow => ({
   title: map.title,
   folder_id: map.folderId,
   parent_map_id: map.parentMapId || null,
+  is_favorite: map.isFavorite,
   mode: map.mode,
   updated_at: new Date(map.updatedAt).toISOString(),
   viewport: map.viewport,
@@ -253,6 +257,7 @@ const fromRow = (row: MindMapRow): MindMap => ({
   title: row.title,
   folderId: row.folder_id,
   parentMapId: row.parent_map_id,
+  isFavorite: Boolean(row.is_favorite),
   mode: row.mode,
   updatedAt: new Date(row.updated_at).getTime(),
   viewport: row.viewport || DEFAULT_VIEWPORT,
@@ -444,6 +449,7 @@ export const createBlankMap = (
   title,
   folderId: options?.folderId || null,
   parentMapId: options?.parentMapId || null,
+  isFavorite: false,
   mode,
   updatedAt: Date.now(),
   viewport: options?.viewport || DEFAULT_VIEWPORT,

@@ -43,6 +43,7 @@ create table if not exists public.mind_maps (
   title text not null,
   folder_id uuid,
   parent_map_id uuid references public.mind_maps (id) on delete set null,
+  is_favorite boolean not null default false,
   mode text not null check (mode in ('study', 'brainstorm', 'project')),
   updated_at timestamptz not null default timezone('utc', now()),
   viewport jsonb not null default '{"x":0,"y":0,"zoom":1}'::jsonb,
