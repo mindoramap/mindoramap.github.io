@@ -8,11 +8,13 @@ import {
   FileText,
   Folder,
   FolderOpen,
+  Lightbulb,
   ListChecks,
   Pencil,
   Plus,
   Rocket,
   Search,
+  Sparkles,
   Star,
   Trash2,
 } from "lucide-react";
@@ -29,6 +31,7 @@ import { useAuth } from "@/store/auth";
 import {
   createBlankMap,
   createFolder,
+  createMapFromTemplate,
   deleteFolder,
   deleteMap,
   loadFolders,
@@ -38,6 +41,7 @@ import {
   type MapMode,
   type MindFolder,
   type MindMap,
+  type TemplateId,
 } from "@/store/maps";
 
 export const Route = createFileRoute("/dashboard")({
@@ -185,6 +189,16 @@ function DashboardPage() {
     await upsertMap(map);
     setShowMapModal(false);
     toast.success("Mapa criado com sucesso.");
+    navigate({ to: "/editor/$id", params: { id: map.id } });
+  };
+
+  const createFromTemplate = async (templateId: TemplateId) => {
+    if (!user) return;
+    const map = createMapFromTemplate({ id: user.id, email: user.email }, templateId, {
+      folderId: selectedFolderId,
+    });
+    await upsertMap(map);
+    toast.success("Mapa criado a partir do template!");
     navigate({ to: "/editor/$id", params: { id: map.id } });
   };
 
@@ -432,14 +446,104 @@ function DashboardPage() {
             </div>
 
             {loadingMaps ? (
-              <div className="rounded-2xl border border-border bg-background/60 py-20 text-center text-muted-foreground">
-                Carregando mapas...
+              <div className="flex flex-col items-center justify-center gap-4 rounded-2xl border border-border bg-background/60 py-24 text-muted-foreground">
+                <div className="h-10 w-10 animate-pulse rounded-2xl bg-[image:var(--gradient-hero)] opacity-60" />
+                <span className="text-sm">Carregando mapas...</span>
+              </div>
+            ) : maps.length === 0 && !search ? (
+              /* ── Welcome screen for first-time users ── */
+              <div className="flex flex-col items-center px-4 py-10">
+                <div className="mb-3 inline-grid h-14 w-14 place-items-center rounded-3xl bg-[image:var(--gradient-hero)] text-primary-foreground shadow-lg">
+                  <Sparkles size={26} />
+                </div>
+                <h2 className="mb-1 text-2xl font-bold tracking-tight">
+                  Olá, {user?.name?.split(" ")[0]}! Bem-vindo ao Mindora
+                </h2>
+                <p className="mb-8 text-sm text-muted-foreground">
+                  Escolha um template para começar — você pode personalizar tudo depois.
+                </p>
+
+                <div className="grid w-full max-w-2xl gap-4 sm:grid-cols-2">
+                  {(
+                    [
+                      {
+                        id: "blank" as TemplateId,
+                        icon: <Plus size={24} />,
+                        title: "Mapa em branco",
+                        desc: "Comece do zero com total liberdade criativa",
+                        color: "from-slate-500 to-slate-600",
+                        nodes: "1 nó",
+                      },
+                      {
+                        id: "brainstorm" as TemplateId,
+                        icon: <Lightbulb size={24} />,
+                        title: "Brainstorm",
+                        desc: "Explore e expanda ideias em estrutura radial",
+                        color: "from-violet-500 to-purple-600",
+                        nodes: "6 nós",
+                      },
+                      {
+                        id: "study" as TemplateId,
+                        icon: <BookOpen size={24} />,
+                        title: "Mapa de Estudo",
+                        desc: "Organize conteúdo acadêmico em hierarquia clara",
+                        color: "from-blue-500 to-cyan-600",
+                        nodes: "8 nós",
+                      },
+                      {
+                        id: "project" as TemplateId,
+                        icon: <ListChecks size={24} />,
+                        title: "Plano de Projeto",
+                        desc: "Gerencie fases, tarefas e entregas com checklists",
+                        color: "from-emerald-500 to-teal-600",
+                        nodes: "9 nós",
+                      },
+                    ] as const
+                  ).map((tpl) => (
+                    <button
+                      key={tpl.id}
+                      type="button"
+                      onClick={() => void createFromTemplate(tpl.id)}
+                      className="group flex flex-col gap-4 rounded-2xl border border-border bg-card/80 p-5 text-left shadow-sm transition-all hover:border-primary/50 hover:shadow-[var(--shadow-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <div
+                        className={`inline-grid h-11 w-11 place-items-center rounded-2xl bg-gradient-to-br ${tpl.color} text-white shadow`}
+                      >
+                        {tpl.icon}
+                      </div>
+                      <div>
+                        <div className="font-semibold text-sm">{tpl.title}</div>
+                        <div className="mt-0.5 text-xs text-muted-foreground leading-relaxed">{tpl.desc}</div>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="rounded-full bg-muted px-2.5 py-1 text-[10px] font-medium text-muted-foreground">
+                          {tpl.nodes}
+                        </span>
+                        <span className="text-xs font-medium text-primary opacity-0 transition-opacity group-hover:opacity-100">
+                          Usar template →
+                        </span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+
+                <p className="mt-6 text-xs text-muted-foreground">
+                  Prefere criar do zero?{" "}
+                  <button
+                    type="button"
+                    onClick={() => { setTitle(""); setMode("brainstorm"); setShowMapModal(true); }}
+                    className="font-medium text-primary hover:underline"
+                  >
+                    Personalizar novo mapa
+                  </button>
+                </p>
               </div>
             ) : filteredMaps.length === 0 ? (
               <div className="rounded-2xl border-2 border-dashed border-border py-20 text-center text-muted-foreground">
                 <FileText className="mx-auto mb-3" />
                 Nenhum mapa nesta área ainda.
               </div>
+
             ) : (
               <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 {filteredMaps.map((map) => (

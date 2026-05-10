@@ -1,10 +1,11 @@
 import { createFileRoute, useNavigate, useParams } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/store/auth";
 import { Header } from "@/components/Header";
 import { MindMapEditor } from "@/components/MindMapEditor";
 import { getMap, type MindMap } from "@/store/maps";
-import { ArrowLeft, GitBranch, Network, Crosshair, Link2, Wand2, Undo2 } from "lucide-react";
+import { ArrowLeft, Brain, GitBranch, Network, Crosshair, Link2, Wand2, Undo2 } from "lucide-react";
+import { OnboardingTour, isOnboardingDone, resetOnboarding } from "@/components/OnboardingTour";
 
 export const Route = createFileRoute("/editor/$id")({
   head: () => ({ meta: [{ title: "Editor - Mindora" }] }),
@@ -28,22 +29,29 @@ function EditorPage() {
   const [connectMode, setConnectMode] = useState(false);
   const [organizeSignal, setOrganizeSignal] = useState(0);
   const [undoSignal, setUndoSignal] = useState(0);
+  const [showTour, setShowTour] = useState(false);
+  const tourScheduledRef = useRef(false);
 
   useEffect(() => {
     init();
   }, [init]);
+
+  const userId = user?.id;
+  const userEmail = user?.email;
+  const userRole = user?.role;
+  const userAccessGranted = user?.accessGranted;
 
   useEffect(() => {
     let cancelled = false;
 
     const run = async () => {
       if (!initialized) return;
-      if (!user) {
+      if (!userId || !userEmail) {
         navigate({ to: "/login" });
         return;
       }
 
-      if (user.role !== "superadmin" && !user.accessGranted) {
+      if (userRole !== "superadmin" && !userAccessGranted) {
         navigate({ to: "/activate" });
         return;
       }
@@ -51,7 +59,7 @@ function EditorPage() {
       setLoadingMap(true);
 
       try {
-        const loadedMap = await getMap(id, { id: user.id, email: user.email });
+        const loadedMap = await getMap(id, { id: userId, email: userEmail });
         if (!loadedMap) {
           navigate({ to: "/dashboard" });
           return;
@@ -74,13 +82,60 @@ function EditorPage() {
     return () => {
       cancelled = true;
     };
-  }, [id, initialized, user, navigate]);
+  }, [id, initialized, userId, userEmail, userRole, userAccessGranted, navigate]);
+
+  // Show tour on first visit — delayed so the editor is fully rendered
+  useEffect(() => {
+    if (!map || !userId || tourScheduledRef.current) return;
+    tourScheduledRef.current = true;
+    if (!isOnboardingDone(userId)) {
+      const t = window.setTimeout(() => setShowTour(true), 1200);
+      return () => window.clearTimeout(t);
+    }
+  }, [map, userId]);
+
+  const handleShowTour = () => {
+    if (userId) resetOnboarding(userId);
+    setShowTour(true);
+  };
 
   if (!initialized) return null;
   if (!user) return null;
   if (user.role !== "superadmin" && !user.accessGranted) return null;
-  if (loadingMap) return null;
-  if (!map) return null;
+
+  if (loadingMap || !map) {
+    return (
+      <div className="h-screen flex flex-col">
+        <Header>
+          <div className="h-4 w-44 animate-pulse rounded-full bg-muted" />
+        </Header>
+        <div className="relative flex-1 overflow-hidden bg-background">
+          {/* Dot-grid background matching ReactFlow */}
+          <svg className="absolute inset-0 h-full w-full opacity-[0.18]" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <pattern id="dots" width="24" height="24" patternUnits="userSpaceOnUse">
+                <circle cx="1" cy="1" r="1" fill="currentColor" className="text-foreground" />
+              </pattern>
+            </defs>
+            <rect width="100%" height="100%" fill="url(#dots)" />
+          </svg>
+          {/* Centered loading indicator */}
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-5">
+            <div className="relative">
+              <div className="absolute inset-0 animate-ping rounded-2xl bg-primary/20" />
+              <div className="relative grid h-16 w-16 place-items-center rounded-2xl bg-[image:var(--gradient-hero)] text-primary-foreground shadow-xl">
+                <Brain size={28} />
+              </div>
+            </div>
+            <div className="flex flex-col items-center gap-1.5">
+              <p className="text-sm font-medium text-foreground">Preparando seu mapa...</p>
+              <p className="text-xs text-muted-foreground">Aguarde um instante</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-screen flex flex-col">
@@ -157,8 +212,14 @@ function EditorPage() {
           setConnectMode={setConnectMode}
           organizeSignal={organizeSignal}
           undoSignal={undoSignal}
+          userId={user.id}
+          onShowTour={handleShowTour}
         />
       </div>
+
+      {showTour && userId && (
+        <OnboardingTour userId={userId} onDone={() => setShowTour(false)} />
+      )}
     </div>
   );
 }

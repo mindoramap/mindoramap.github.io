@@ -132,7 +132,7 @@ export function FloatingPanel({
           <span className="grid h-8 w-8 place-items-center rounded-2xl bg-primary/10 text-primary">{icon}</span>
           <div className="min-w-0">
             <div className="truncate text-sm font-semibold">{title}</div>
-            <div className="text-[11px] text-muted-foreground">{mobile ? "Painel mÃ³vel" : "Arraste para mover"}</div>
+            <div className="text-[11px] text-muted-foreground">{mobile ? "Painel móvel" : "Arraste para mover"}</div>
           </div>
         </div>
 
