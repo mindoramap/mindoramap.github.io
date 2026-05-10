@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { useAuth } from "@/store/auth";
 import { Brain, LockKeyhole, Mail } from "lucide-react";
 
@@ -61,7 +62,10 @@ function LoginPage() {
   if (!initialized) return null;
 
   return (
-    <div className="min-h-screen grid place-items-center px-4 bg-[radial-gradient(ellipse_at_top,oklch(0.55_0.22_280/0.15),transparent_60%)]">
+    <div className="relative min-h-screen grid place-items-center px-4 bg-[radial-gradient(ellipse_at_top,oklch(0.58_0.17_258/0.15),transparent_60%)]">
+      <div className="absolute right-4 top-4">
+        <ThemeToggle compact />
+      </div>
       <div className="w-full max-w-sm bg-card border border-border rounded-2xl p-8 shadow-[var(--shadow-soft)]">
         <div className="flex flex-col items-center gap-2 mb-6">
           <span className="w-12 h-12 rounded-xl bg-[image:var(--gradient-hero)] grid place-items-center text-primary-foreground">

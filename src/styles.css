@@ -36,62 +36,66 @@
 
 :root {
   --radius: 0.75rem;
-  --background: oklch(0.99 0.005 90);
-  --foreground: oklch(0.16 0.02 270);
+  --background: oklch(0.985 0.004 240);
+  --foreground: oklch(0.22 0.018 255);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.16 0.02 270);
+  --card-foreground: oklch(0.22 0.018 255);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.16 0.02 270);
-  --primary: oklch(0.55 0.22 280);
+  --popover-foreground: oklch(0.22 0.018 255);
+  --primary: oklch(0.58 0.17 258);
   --primary-foreground: oklch(0.99 0 0);
-  --secondary: oklch(0.96 0.01 270);
-  --secondary-foreground: oklch(0.2 0.02 270);
-  --muted: oklch(0.96 0.01 270);
-  --muted-foreground: oklch(0.5 0.03 270);
-  --accent: oklch(0.93 0.05 200);
-  --accent-foreground: oklch(0.2 0.05 240);
+  --secondary: oklch(0.965 0.008 250);
+  --secondary-foreground: oklch(0.24 0.018 255);
+  --muted: oklch(0.96 0.008 250);
+  --muted-foreground: oklch(0.51 0.03 255);
+  --accent: oklch(0.94 0.02 200);
+  --accent-foreground: oklch(0.24 0.03 245);
   --destructive: oklch(0.6 0.24 25);
   --destructive-foreground: oklch(0.99 0 0);
-  --border: oklch(0.92 0.01 270);
-  --input: oklch(0.94 0.01 270);
-  --ring: oklch(0.55 0.22 280);
-  --tree: oklch(0.55 0.22 280);
-  --graph: oklch(0.7 0.18 180);
-  --gradient-hero: linear-gradient(135deg, oklch(0.55 0.22 280), oklch(0.7 0.18 200));
-  --shadow-soft: 0 4px 24px -8px oklch(0.55 0.22 280 / 0.25);
+  --border: oklch(0.9 0.008 252);
+  --input: oklch(0.95 0.01 252);
+  --ring: oklch(0.58 0.17 258);
+  --tree: oklch(0.58 0.17 258);
+  --graph: oklch(0.71 0.16 195);
+  --gradient-hero: linear-gradient(135deg, oklch(0.58 0.17 258), oklch(0.68 0.15 205));
+  --shadow-soft: 0 22px 60px -30px oklch(0.3 0.05 250 / 0.28);
 }
 
 .dark {
-  --background: oklch(0.14 0.02 270);
-  --foreground: oklch(0.97 0.005 270);
-  --card: oklch(0.18 0.02 270);
-  --card-foreground: oklch(0.97 0.005 270);
-  --popover: oklch(0.18 0.02 270);
-  --popover-foreground: oklch(0.97 0.005 270);
-  --primary: oklch(0.7 0.2 280);
-  --primary-foreground: oklch(0.14 0.02 270);
-  --secondary: oklch(0.24 0.02 270);
-  --secondary-foreground: oklch(0.97 0.005 270);
-  --muted: oklch(0.24 0.02 270);
-  --muted-foreground: oklch(0.65 0.02 270);
-  --accent: oklch(0.3 0.06 220);
-  --accent-foreground: oklch(0.97 0.005 270);
+  --background: oklch(0.14 0.015 255);
+  --foreground: oklch(0.965 0.006 255);
+  --card: oklch(0.18 0.015 255);
+  --card-foreground: oklch(0.965 0.006 255);
+  --popover: oklch(0.18 0.015 255);
+  --popover-foreground: oklch(0.965 0.006 255);
+  --primary: oklch(0.72 0.16 252);
+  --primary-foreground: oklch(0.14 0.015 255);
+  --secondary: oklch(0.235 0.015 255);
+  --secondary-foreground: oklch(0.965 0.006 255);
+  --muted: oklch(0.23 0.015 255);
+  --muted-foreground: oklch(0.68 0.02 255);
+  --accent: oklch(0.28 0.03 205);
+  --accent-foreground: oklch(0.965 0.006 255);
   --destructive: oklch(0.65 0.24 25);
   --destructive-foreground: oklch(0.99 0 0);
   --border: oklch(1 0 0 / 12%);
   --input: oklch(1 0 0 / 14%);
-  --ring: oklch(0.7 0.2 280);
-  --tree: oklch(0.7 0.2 280);
-  --graph: oklch(0.75 0.18 180);
-  --shadow-soft: 0 4px 24px -8px oklch(0 0 0 / 0.5);
+  --ring: oklch(0.72 0.16 252);
+  --tree: oklch(0.72 0.16 252);
+  --graph: oklch(0.76 0.14 195);
+  --shadow-soft: 0 30px 80px -42px oklch(0 0 0 / 0.6);
 }
 
 @layer base {
   * { border-color: var(--color-border); }
+  html { scroll-behavior: smooth; }
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-display);
+    transition:
+      background-color 220ms ease,
+      color 220ms ease;
   }
   .react-flow__edge.tree-edge .react-flow__edge-path {
     stroke: var(--tree);
@@ -141,5 +145,29 @@
     background: var(--card) !important;
     color: var(--foreground) !important;
     border-color: var(--border) !important;
+  }
+}
+
+@layer utilities {
+  .landing-grid {
+    background-image:
+      linear-gradient(to right, color-mix(in oklab, var(--color-border) 55%, transparent) 1px, transparent 1px),
+      linear-gradient(to bottom, color-mix(in oklab, var(--color-border) 55%, transparent) 1px, transparent 1px);
+    background-size: 44px 44px;
+    mask-image: radial-gradient(circle at center, black 28%, transparent 90%);
+  }
+
+  .landing-panel {
+    border: 1px solid color-mix(in oklab, var(--color-border) 82%, transparent);
+    background:
+      linear-gradient(180deg, color-mix(in oklab, var(--color-card) 92%, transparent), color-mix(in oklab, var(--color-card) 78%, transparent));
+    backdrop-filter: blur(24px);
+  }
+
+  .landing-orb {
+    position: absolute;
+    border-radius: 9999px;
+    filter: blur(80px);
+    opacity: 0.9;
   }
 }

@@ -1,13 +1,12 @@
 // Top header with theme + auth controls
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useAuth } from "@/store/auth";
-import { useTheme } from "@/hooks/useTheme";
 import { useUsageTracker } from "@/hooks/useUsageTracker";
-import { Moon, Sun, LogOut, Brain, Shield } from "lucide-react";
+import { LogOut, Brain, Shield } from "lucide-react";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 export function Header({ children }: { children?: React.ReactNode }) {
   const { user, logout } = useAuth();
-  const { theme, toggle } = useTheme();
   const navigate = useNavigate();
 
   useUsageTracker(Boolean(user && (user.role === "superadmin" || user.accessGranted)));
@@ -21,13 +20,7 @@ export function Header({ children }: { children?: React.ReactNode }) {
         <span>Mindora</span>
       </Link>
       <div className="flex-1 flex items-center gap-2 mx-4">{children}</div>
-      <button
-        onClick={toggle}
-        className="w-9 h-9 grid place-items-center rounded-lg hover:bg-muted transition-colors"
-        aria-label="Alternar tema"
-      >
-        {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
-      </button>
+      <ThemeToggle compact className="h-9 w-9 rounded-lg border-0 bg-transparent hover:bg-muted" />
       {user && (
         <div className="flex items-center gap-2">
           {user.role === "superadmin" && (
