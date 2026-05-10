@@ -15,7 +15,7 @@ import ReactFlow, {
   type NodeMouseHandler,
   type Viewport,
 } from "reactflow";
-import { CircleHelp, Map as MiniMapIcon, PanelRightOpen, RotateCcw, SlidersHorizontal } from "lucide-react";
+import { CircleHelp, Map as MiniMapIcon, PanelBottomOpen, PanelRightOpen, RotateCcw, SlidersHorizontal } from "lucide-react";
 import { ContextualTip } from "./ContextualTip";
 import {
   Dialog,
@@ -193,6 +193,25 @@ function EditorInner({ map, mode, orientation, connectMode, setConnectMode, orga
       help: { x: 16, y: 88 },
     });
   }, [map.id]);
+
+  // Re-clamp panel positions on window resize
+  useEffect(() => {
+    const onResize = () => {
+      setPanelPositions((current) => {
+        const clamp = (pos: { x: number; y: number }, w: number, h: number) => ({
+          x: Math.min(Math.max(16, pos.x), Math.max(16, window.innerWidth - w - 16)),
+          y: Math.min(Math.max(16, pos.y), Math.max(16, window.innerHeight - h - 16)),
+        });
+        return {
+          inspector: clamp(current.inspector, 340, 200),
+          minimap: clamp(current.minimap, 60, 40),
+          help: clamp(current.help, 290, 200),
+        };
+      });
+    };
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
 
   useEffect(() => {
     if (isMobile) {
@@ -767,6 +786,17 @@ function EditorInner({ map, mode, orientation, connectMode, setConnectMode, orga
           className={isMobile ? "!hidden" : "!shadow-none !mb-20 !ml-3"}
           showInteractive={false}
         />
+        {showMiniMap && !miniMapMinimized && (
+          <MiniMap
+            position="bottom-left"
+            style={{ bottom: isMobile ? 72 : 80, left: 12 }}
+            className="!rounded-2xl !border !border-border !bg-card/95 !backdrop-blur-xl !shadow-[var(--shadow-soft)]"
+            maskColor="oklch(0 0 0 / 0.08)"
+            nodeColor={() => "oklch(0.55 0.22 280)"}
+            pannable
+            zoomable
+          />
+        )}
       </ReactFlow>
 
       {connectMode && (
@@ -799,28 +829,21 @@ function EditorInner({ map, mode, orientation, connectMode, setConnectMode, orga
         </FloatingPanel>
       )}
 
-      {showMiniMap && (
-        <FloatingPanel
-          id="minimap"
-          title="Minimapa"
-          icon={<MiniMapIcon size={16} />}
-          open={showMiniMap}
-          minimized={miniMapMinimized}
-          mobile={isMobile}
-          position={panelPositions.minimap}
-          widthClassName="w-[280px]"
-          onToggle={toggleMiniMap}
-          onMinimize={() => setMiniMapMinimized(true)}
-          onPositionChange={(position) => setPanelPositions((current) => ({ ...current, minimap: position }))}
+      {showMiniMap && miniMapMinimized && !isMobile && (
+        <button
+          type="button"
+          data-panel-id="minimap-tab"
+          className="absolute z-20 inline-flex items-center gap-2 rounded-full border border-border/80 bg-card/95 px-3 py-2 text-xs font-medium text-foreground shadow-[var(--shadow-soft)] backdrop-blur-xl transition-colors hover:bg-muted"
+          style={{ left: panelPositions.minimap.x, top: panelPositions.minimap.y }}
+          onClick={toggleMiniMap}
+          aria-label="Expandir Minimapa"
         >
-          <MiniMap
-            className="!h-[220px] !w-full !overflow-hidden rounded-2xl !border !border-border !bg-card"
-            maskColor="oklch(0 0 0 / 0.08)"
-            nodeColor={() => "oklch(0.55 0.22 280)"}
-            pannable
-            zoomable
-          />
-        </FloatingPanel>
+          <span className="grid h-7 w-7 place-items-center rounded-full bg-primary/10 text-primary">
+            <MiniMapIcon size={16} />
+          </span>
+          <span>Minimapa</span>
+          <PanelBottomOpen size={14} className="text-muted-foreground" />
+        </button>
       )}
 
       {showHelp && (

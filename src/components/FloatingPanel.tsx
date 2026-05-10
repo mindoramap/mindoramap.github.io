@@ -84,6 +84,22 @@ export function FloatingPanel({
   const panelRef = useRef<HTMLDivElement | null>(null);
   const { dragging, startDrag } = useFloatingDrag(mobile, panelRef, onPositionChange);
 
+  // Clamp panel back into viewport bounds after render or position change
+  useEffect(() => {
+    if (mobile || !open) return;
+    const panel = panelRef.current;
+    if (!panel) return;
+    const w = panel.offsetWidth || 320;
+    const h = panel.offsetHeight || 60;
+    const maxX = Math.max(16, window.innerWidth - w - 16);
+    const maxY = Math.max(16, window.innerHeight - h - 16);
+    const cx = Math.min(Math.max(16, position.x), maxX);
+    const cy = Math.min(Math.max(16, position.y), maxY);
+    if (Math.abs(cx - position.x) > 1 || Math.abs(cy - position.y) > 1) {
+      onPositionChange({ x: cx, y: cy });
+    }
+  }); // runs every render — cheap and correct
+
   if (!open) return null;
 
   if (minimized) {
