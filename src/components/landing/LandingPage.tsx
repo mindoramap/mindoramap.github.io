@@ -31,46 +31,46 @@ const sectionFade = {
 
 const heroCards = [
   { title: "Mapas vivos", value: "12x", hint: "mais clareza entre ideias relacionadas" },
-  { title: "Contexto conectado", value: "360°", hint: "visao cruzada entre ramos e submapas" },
-  { title: "Fluxo com IA", value: "24/7", hint: "sugestoes para organizar o pensamento" },
+  { title: "Contexto conectado", value: "360°", hint: "visão cruzada entre ramos e submapas" },
+  { title: "Fluxo com IA", value: "24/7", hint: "sugestões para organizar o pensamento" },
 ];
 
 const benefits = [
   {
     icon: Network,
-    title: "Conexoes inteligentes",
-    description: "Relacione ideias distantes, cruze contextos e revele padroes que nao aparecem em listas comuns.",
+    title: "Conexões inteligentes",
+    description: "Relacione ideias distantes, cruze contextos e revele padrões que não aparecem em listas comuns.",
   },
   {
     icon: BrainCircuit,
     title: "Pensamento assistido por IA",
-    description: "Estruture temas, refine ramos e ganhe apoio para transformar intuicoes em mapas claros e acionaveis.",
+    description: "Estruture temas, refine ramos e ganhe apoio para transformar intuições em mapas claros e acionáveis.",
   },
   {
     icon: Workflow,
-    title: "Navegacao fluida",
-    description: "Entre em submapas, retorne ao contexto anterior e mantenha o raciocinio visual sempre em movimento.",
+    title: "Navegação fluida",
+    description: "Entre em submapas, retorne ao contexto anterior e mantenha o raciocínio visual sempre em movimento.",
   },
   {
     icon: PanelLeftOpen,
-    title: "Organizacao premium",
-    description: "Pastas, favoritos, atalhos visuais e uma experiencia desenhada para manter tudo sob controle.",
+    title: "Organização premium",
+    description: "Pastas, favoritos, atalhos visuais e uma experiência desenhada para manter tudo sob controle.",
   },
   {
     icon: ShieldCheck,
-    title: "Colaboracao com governanca",
-    description: "Controle o acesso inicial, gerencie aprovacoes e mantenha o ambiente pronto para equipes exigentes.",
+    title: "Colaboração com governança",
+    description: "Controle o acesso inicial, gerencie aprovações e mantenha o ambiente pronto para equipes exigentes.",
   },
   {
     icon: Zap,
     title: "Produtividade real",
-    description: "Do brainstorming ao plano de execucao, reduza atrito e avance com mais foco e menos ruído mental.",
+    description: "Do brainstorming ao plano de execução, reduza atrito e avance com mais foco e menos ruído mental.",
   },
 ];
 
 const differentiators = [
-  "Conexoes entre ramos que criam uma malha real de conhecimento",
-  "Submapas dinamicos para aprofundar ideias sem perder o panorama",
+  "Conexões entre ramos que criam uma malha real de conhecimento",
+  "Submapas dinâmicos para aprofundar ideias sem perder o panorama",
   "Canvas persistente para navegar sem resets irritantes de viewport",
   "Interface pensada para foco, velocidade e descoberta visual",
 ];
@@ -79,13 +79,13 @@ const stats = [
   { value: "41%", label: "menos tempo procurando contexto" },
   { value: "3.2x", label: "mais velocidade no brainstorming" },
   { value: "68%", label: "ganho percebido de foco em tarefas complexas" },
-  { value: "92%", label: "sensacao de organizacao mental apos uma sessao" },
+  { value: "92%", label: "sensação de organização mental após uma sessão" },
 ];
 
 const floatingNodes = [
   { title: "Produto", x: "8%", y: "22%" },
   { title: "Pesquisa", x: "26%", y: "10%" },
-  { title: "Operacao", x: "72%", y: "18%" },
+  { title: "Operação", x: "72%", y: "18%" },
   { title: "Insights", x: "18%", y: "74%" },
   { title: "IA", x: "68%", y: "76%" },
 ];
@@ -143,7 +143,7 @@ function QuickAccessCard() {
     setSubmitting(false);
 
     if (!result.ok) {
-      setError(result.error || debugMessage || "Nao foi possivel entrar agora.");
+      setError(result.error || debugMessage || "Não foi possível entrar agora.");
       return;
     }
 
@@ -156,7 +156,7 @@ function QuickAccessCard() {
       <div className="absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
       <div className="mb-5 flex items-center justify-between gap-3">
         <div>
-          <p className="text-sm font-semibold text-foreground">Acesso rapido</p>
+          <p className="text-sm font-semibold text-foreground">Acesso rápido</p>
           <p className="mt-1 text-xs text-muted-foreground">Entre em segundos ou crie sua conta agora.</p>
         </div>
         <div className="grid h-10 w-10 place-items-center rounded-2xl bg-primary/10 text-primary">
@@ -229,7 +229,7 @@ export function LandingPage() {
 
   const navItems = useMemo(
     () => [
-      { label: "Beneficios", id: "beneficios" },
+      { label: "Benefícios", id: "beneficios" },
       { label: "Showcase", id: "showcase" },
       { label: "Diferenciais", id: "diferenciais" },
       { label: "Produtividade", id: "produtividade" },
@@ -293,15 +293,7 @@ export function LandingPage() {
       <main id="top">
         <section className="relative isolate overflow-hidden">
           <div className="absolute inset-0 -z-20">
-            <video
-              autoPlay
-              muted
-              loop
-              playsInline
-              preload="metadata"
-              className="h-full w-full object-cover"
-              poster=""
-            >
+            <video autoPlay muted loop playsInline preload="metadata" className="h-full w-full object-cover">
               <source src="/mindora-hero.mp4" type="video/mp4" />
             </video>
           </div>
@@ -322,13 +314,13 @@ export function LandingPage() {
                 transition={{ duration: 0.7 }}
                 className="max-w-3xl"
               >
-                <SectionLabel>Inteligencia visual para pensamento complexo</SectionLabel>
+                <SectionLabel>Inteligência visual para pensamento complexo</SectionLabel>
                 <h1 className="mt-6 max-w-4xl text-5xl font-semibold leading-[0.95] tracking-[-0.05em] text-balance text-foreground sm:text-6xl lg:text-7xl">
-                  Transforme pensamentos em conexoes inteligentes.
+                  Transforme pensamentos em conexões inteligentes.
                 </h1>
                 <p className="mt-6 max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg">
-                  O MindoraMap organiza ideias, revela relacoes escondidas e acelera o raciocinio com uma experiencia
-                  visual premium, fluida e pronta para trabalho serio.
+                  O MindoraMap organiza ideias, revela relações escondidas e acelera o raciocínio com uma experiência
+                  visual premium, fluida e pronta para trabalho sério.
                 </p>
               </motion.div>
 
@@ -342,7 +334,7 @@ export function LandingPage() {
                   to="/register"
                   className="inline-flex items-center justify-center gap-2 rounded-full bg-[image:var(--gradient-hero)] px-6 py-3 text-sm font-semibold text-primary-foreground shadow-[var(--shadow-soft)] transition-all duration-300 hover:-translate-y-0.5 hover:opacity-95"
                 >
-                  Comecar agora
+                  Começar agora
                   <ArrowRight size={16} />
                 </Link>
                 <button
@@ -350,7 +342,7 @@ export function LandingPage() {
                   onClick={() => scrollToId("showcase")}
                   className="inline-flex items-center justify-center gap-2 rounded-full border border-border/70 bg-card/50 px-6 py-3 text-sm font-semibold text-foreground backdrop-blur transition-colors hover:bg-card"
                 >
-                  Ver demonstracao
+                  Ver demonstração
                   <ChevronRight size={16} />
                 </button>
               </motion.div>
@@ -398,13 +390,13 @@ export function LandingPage() {
 
         <section id="beneficios" className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
           <Reveal className="mx-auto max-w-3xl text-center">
-            <SectionLabel>Beneficios</SectionLabel>
+            <SectionLabel>Benefícios</SectionLabel>
             <h2 className="mt-5 text-3xl font-semibold tracking-[-0.04em] sm:text-5xl">
-              Da ideia bruta ao mapa estrategico com clareza incomum.
+              Da ideia bruta ao mapa estratégico com clareza incomum.
             </h2>
             <p className="mt-4 text-base leading-7 text-muted-foreground sm:text-lg">
-              Menos caos, mais contexto. O MindoraMap une pensamento visual, organizacao e tecnologia para ampliar o
-              seu raciocinio.
+              Menos caos, mais contexto. O MindoraMap une pensamento visual, organização e tecnologia para ampliar o
+              seu raciocínio.
             </p>
           </Reveal>
 
@@ -431,7 +423,7 @@ export function LandingPage() {
             <Reveal>
               <SectionLabel>Showcase visual</SectionLabel>
               <h2 className="mt-5 text-3xl font-semibold tracking-[-0.04em] sm:text-5xl">
-                Um canvas que parece vivo e entende a forma como voce pensa.
+                Um canvas que parece vivo e entende a forma como você pensa.
               </h2>
               <p className="mt-4 text-base leading-7 text-muted-foreground">
                 Crie ramos, conecte temas, aprofunde ideias em submapas e mantenha contexto mesmo em estruturas mais
@@ -439,9 +431,9 @@ export function LandingPage() {
               </p>
               <div className="mt-8 space-y-3">
                 {[
-                  "Nos conectados por contexto, nao apenas por hierarquia",
+                  "Nós conectados por contexto, não apenas por hierarquia",
                   "Submapas para aprofundar sem poluir o panorama principal",
-                  "Experiencia visual refinada para explorar raciocinio complexo",
+                  "Experiência visual refinada para explorar raciocínio complexo",
                 ].map((item) => (
                   <div key={item} className="flex items-start gap-3 rounded-2xl border border-border/60 bg-card/60 p-4">
                     <CheckCircle2 size={18} className="mt-0.5 text-primary" />
@@ -456,7 +448,7 @@ export function LandingPage() {
                 <div className="mb-4 flex items-center justify-between rounded-[22px] border border-border/70 bg-background/70 px-4 py-3 backdrop-blur">
                   <div>
                     <div className="text-xs uppercase tracking-[0.24em] text-muted-foreground">Workspace</div>
-                    <div className="mt-1 text-lg font-semibold">Estrategia Q3 · MindoraMap</div>
+                    <div className="mt-1 text-lg font-semibold">Estratégia Q3 · MindoraMap</div>
                   </div>
                   <div className="flex items-center gap-2 rounded-full border border-border/70 bg-card px-3 py-1 text-xs text-muted-foreground">
                     <Sparkles size={12} className="text-primary" />
@@ -472,7 +464,7 @@ export function LandingPage() {
                       animate={{ y: [0, -10, 0] }}
                       transition={{ duration: 6, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" }}
                     >
-                      <div className="text-sm font-semibold">Visao central</div>
+                      <div className="text-sm font-semibold">Visão central</div>
                       <div className="mt-1 text-xs text-muted-foreground">Objetivos, riscos e prioridades</div>
                     </motion.div>
                     <motion.div
@@ -488,16 +480,16 @@ export function LandingPage() {
                       animate={{ y: [0, -8, 0] }}
                       transition={{ duration: 5.5, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" }}
                     >
-                      <div className="text-sm font-semibold">Execucao</div>
-                      <div className="mt-1 text-xs text-muted-foreground">Plano tatico e ownership</div>
+                      <div className="text-sm font-semibold">Execução</div>
+                      <div className="mt-1 text-xs text-muted-foreground">Plano tático e ownership</div>
                     </motion.div>
                     <motion.div
                       className="absolute bottom-[10%] left-[28%] rounded-[24px] border border-cyan-400/30 bg-cyan-400/10 px-5 py-4 shadow-[var(--shadow-soft)] backdrop-blur"
                       animate={{ y: [0, 10, 0] }}
                       transition={{ duration: 6.2, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" }}
                     >
-                      <div className="text-sm font-semibold">Conexao cruzada</div>
-                      <div className="mt-1 text-xs text-muted-foreground">Vinculo entre risco, pesquisa e entrega</div>
+                      <div className="text-sm font-semibold">Conexão cruzada</div>
+                      <div className="mt-1 text-xs text-muted-foreground">Vínculo entre risco, pesquisa e entrega</div>
                     </motion.div>
 
                     <svg className="absolute inset-0 h-full w-full" viewBox="0 0 1000 620" fill="none" aria-hidden="true">
@@ -558,22 +550,22 @@ export function LandingPage() {
                   {
                     icon: Layers3,
                     title: "Mapas vivos",
-                    body: "A estrutura cresce com voce e acompanha a profundidade do raciocinio sem parecer um quadro estatico.",
+                    body: "A estrutura cresce com você e acompanha a profundidade do raciocínio sem parecer um quadro estático.",
                   },
                   {
                     icon: Star,
-                    title: "Experiencia intuitiva",
-                    body: "Menos friccao visual, mais foco no que importa: entender, conectar e executar.",
+                    title: "Experiência intuitiva",
+                    body: "Menos fricção visual, mais foco no que importa: entender, conectar e executar.",
                   },
                   {
                     icon: Clock3,
                     title: "Velocidade real",
-                    body: "Do insight ao plano em poucos movimentos, com um ambiente que favorece fluxo mental continuo.",
+                    body: "Do insight ao plano em poucos movimentos, com um ambiente que favorece fluxo mental contínuo.",
                   },
                   {
                     icon: ShieldCheck,
                     title: "Pronto para escalar",
-                    body: "Fluxos de acesso, organizacao por pastas e uma base preparada para evoluir com equipes e projetos maiores.",
+                    body: "Fluxos de acesso, organização por pastas e uma base preparada para evoluir com equipes e projetos maiores.",
                   },
                 ].map((card) => {
                   const Icon = card.icon;
@@ -596,10 +588,10 @@ export function LandingPage() {
           <Reveal className="mx-auto max-w-3xl text-center">
             <SectionLabel>Produtividade aumentada</SectionLabel>
             <h2 className="mt-5 text-3xl font-semibold tracking-[-0.04em] sm:text-5xl">
-              Metrica visual para uma sensacao imediata de progresso.
+              Métrica visual para uma sensação imediata de progresso.
             </h2>
-            <p className="mt-4 text-base leading-7 text-muted-foreground">
-              Numeros ficticios, impacto real: tudo aqui foi desenhado para comunicar foco, velocidade e ordem mental.
+            <p className="mt-4 text-base leading-7 text-muted-foreground sm:text-lg">
+              Números fictícios, impacto real: tudo aqui foi desenhado para comunicar foco, velocidade e ordem mental.
             </p>
           </Reveal>
 
@@ -621,13 +613,13 @@ export function LandingPage() {
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(124,92,255,0.22),transparent_34%),radial-gradient(circle_at_80%_20%,rgba(34,211,238,0.18),transparent_28%)]" />
               <div className="relative z-10 grid gap-8 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
                 <div>
-                  <SectionLabel>Pronto para comecar</SectionLabel>
+                  <SectionLabel>Pronto para começar</SectionLabel>
                   <h2 className="mt-5 max-w-3xl text-3xl font-semibold tracking-[-0.04em] sm:text-5xl">
-                    Leve seus pensamentos para um ambiente onde conexoes viram vantagem competitiva.
+                    Leve seus pensamentos para um ambiente onde conexões viram vantagem competitiva.
                   </h2>
                   <p className="mt-4 max-w-2xl text-base leading-7 text-muted-foreground">
                     Crie sua conta, organize seus mapas e experimente uma nova forma de estruturar conhecimento, foco e
-                    execucao.
+                    execução.
                   </p>
                 </div>
 
@@ -662,18 +654,18 @@ export function LandingPage() {
               </span>
               <div>
                 <div className="text-sm font-semibold">MindoraMap</div>
-                <div className="text-xs text-muted-foreground">Produtividade visual com inteligencia aplicada</div>
+                <div className="text-xs text-muted-foreground">Produtividade visual com inteligência aplicada</div>
               </div>
             </div>
             <p className="mt-4 max-w-xl text-sm leading-7 text-muted-foreground">
-              Uma experiencia pensada para transformar caos mental em estrutura clara, conectada e escalavel.
+              Uma experiência pensada para transformar caos mental em estrutura clara, conectada e escalável.
             </p>
           </div>
 
           <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
             <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
               <button type="button" onClick={() => scrollToId("beneficios")} className="transition-colors hover:text-foreground">
-                Beneficios
+                Benefícios
               </button>
               <button type="button" onClick={() => scrollToId("showcase")} className="transition-colors hover:text-foreground">
                 Showcase

@@ -45,7 +45,7 @@ function RegisterPage() {
     }
 
     if (password !== confirmPassword) {
-      setError("As senhas nao coincidem.");
+      setError("As senhas não coincidem.");
       return;
     }
 
@@ -82,15 +82,15 @@ function RegisterPage() {
           </span>
           <h1 className="text-2xl font-bold">Criar conta</h1>
           <p className="text-sm text-muted-foreground text-center">
-            Crie seu acesso. Usuarios comuns vao precisar de um codigo no primeiro login.
+            Crie seu acesso. Usuários comuns vão precisar de um código no primeiro login.
           </p>
           <p className="text-xs text-muted-foreground text-center">
-            Depois do cadastro, voce podera entrar e solicitar a liberacao do acesso com o codigo enviado pelo admin.
+            Depois do cadastro, você poderá entrar e solicitar a liberação do acesso com o código enviado pelo admin.
           </p>
         </div>
         {!configured && (
           <div className="mb-4 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
-            {configError || "Auth nao configurado."}
+            {configError || "Auth não configurado."}
           </div>
         )}
         <form onSubmit={submit} className="space-y-3">
@@ -139,7 +139,7 @@ function RegisterPage() {
             </button>
           </div>
           <p className="text-xs text-muted-foreground">
-            Minimo de {PASSWORD_MIN_LENGTH} caracteres com maiuscula, minuscula e numero.
+            Mínimo de {PASSWORD_MIN_LENGTH} caracteres com maiúscula, minúscula e número.
           </p>
           {success && <p className="text-sm text-emerald-600">{success}</p>}
           {error && <p className="text-sm text-destructive">{error}</p>}
@@ -156,7 +156,7 @@ function RegisterPage() {
           </button>
         </form>
         <p className="text-sm text-muted-foreground text-center mt-4">
-          Ja tem conta? <Link to="/login" className="text-primary hover:underline">Entrar</Link>
+          Já tem conta? <Link to="/login" className="text-primary hover:underline">Entrar</Link>
         </p>
       </div>
     </div>

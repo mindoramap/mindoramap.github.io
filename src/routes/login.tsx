@@ -73,12 +73,12 @@ function LoginPage() {
           </span>
           <h1 className="text-2xl font-bold">Entrar</h1>
           <p className="text-sm text-muted-foreground text-center">
-            Acesse sua conta com email, senha e liberacao por codigo.
+            Acesse sua conta com email, senha e liberação por código.
           </p>
         </div>
         {!configured && (
           <div className="mb-4 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
-            {configError || "Auth nao configurado."}
+            {configError || "Auth não configurado."}
           </div>
         )}
         <form onSubmit={submit} className="space-y-3">
