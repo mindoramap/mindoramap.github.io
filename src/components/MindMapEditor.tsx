@@ -382,7 +382,6 @@ function EditorInner({ map, mode, orientation, connectMode, setConnectMode, orga
       }
 
       setSelectedId(node.id);
-      setShowInspector(true);
     },
     [connectMode, pendingSource, edges, setEdges]
   );
@@ -405,7 +404,6 @@ function EditorInner({ map, mode, orientation, connectMode, setConnectMode, orga
 
       if (action === "edit") {
         setSelectedId(id);
-        setShowInspector(true);
         window.dispatchEvent(new CustomEvent("mm-node-start-edit", { detail: { id } }));
         return;
       }
