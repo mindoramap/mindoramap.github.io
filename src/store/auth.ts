@@ -2,7 +2,7 @@
 import type { Session, Subscription, User as SupabaseUser } from "@supabase/supabase-js";
 import { create } from "zustand";
 import { validatePasswordPolicy } from "@/lib/security";
-import { supabase } from "@/lib/supabase";
+import { getAuthRedirectUrl, supabase } from "@/lib/supabase";
 
 const SUPERADMIN_EMAIL = "gabrielnbn@hotmail.com";
 const SUPERADMIN_PASSWORD = "Mindora123*";
@@ -47,6 +47,7 @@ interface AuthState {
   profile: UserProfile | null;
   login: (email: string, password: string) => Promise<AuthResult>;
   register: (name: string, email: string, password: string) => Promise<AuthResult>;
+  resendConfirmation: (email: string) => Promise<AuthResult>;
   activateWithCode: (code: string) => Promise<AuthResult>;
   refreshProfile: () => Promise<void>;
   recordUsage: (seconds: number) => Promise<void>;
@@ -62,6 +63,8 @@ interface ActivateCodeResponse {
 let authSubscription: Subscription | null = null;
 
 const normalizeEmail = (email: string) => email.trim().toLowerCase();
+
+const wait = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
 
 const isReservedSuperadminCredentials = (email: string, password: string) =>
   normalizeEmail(email) === SUPERADMIN_EMAIL && password === SUPERADMIN_PASSWORD;
@@ -112,6 +115,10 @@ const normalizeAuthError = (message?: string) => {
     return "Cadastro indisponivel no momento.";
   }
 
+  if (normalizedMessage.includes("email not confirmed")) {
+    return "Confirme seu email antes de entrar.";
+  }
+
   if (normalizedMessage.includes("network") || normalizedMessage.includes("fetch")) {
     return "Falha de conexao. Tente novamente em instantes.";
   }
@@ -119,25 +126,64 @@ const normalizeAuthError = (message?: string) => {
   return "Nao foi possivel autenticar agora. Tente novamente.";
 };
 
-const fetchProfile = async (userId: string): Promise<UserProfile | null> => {
-  if (!supabase) return null;
+const buildFallbackProfile = (authUser: SupabaseUser): UserProfile => {
+  const normalizedEmail = normalizeEmail(authUser.email || "");
+  const role: UserRole = normalizedEmail === SUPERADMIN_EMAIL ? "superadmin" : "member";
+  const now = new Date().toISOString();
 
-  const { data, error } = await supabase
-    .from("user_profiles")
-    .select("*")
-    .eq("user_id", userId)
-    .maybeSingle();
-
-  if (error) throw error;
-  return data;
+  return {
+    user_id: authUser.id,
+    email: normalizedEmail,
+    display_name: getDisplayName(authUser),
+    role,
+    access_granted_at: role === "superadmin" ? now : null,
+    access_code_id: null,
+    total_usage_seconds: 0,
+    last_seen_at: now,
+    created_at: now,
+  };
 };
 
-const hydrateFromSession = async (session: Session | null) => {
+const fetchProfile = async (
+  userId: string,
+  options?: { retries?: number; retryDelayMs?: number }
+): Promise<UserProfile | null> => {
+  if (!supabase) return null;
+
+  const retries = options?.retries ?? 0;
+  const retryDelayMs = options?.retryDelayMs ?? 120;
+
+  for (let attempt = 0; attempt <= retries; attempt += 1) {
+    const { data, error } = await supabase
+      .from("user_profiles")
+      .select("*")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (data) return data;
+    if (attempt < retries) {
+      await wait(retryDelayMs * (attempt + 1));
+    }
+  }
+
+  return null;
+};
+
+const hydrateFromSession = async (
+  session: Session | null,
+  options?: { allowFallbackProfile?: boolean; profileRetries?: number }
+) => {
   if (!session?.user || !supabase) {
     return { profile: null as UserProfile | null, user: null as User | null };
   }
 
-  const profile = await fetchProfile(session.user.id);
+  const profile =
+    (await fetchProfile(session.user.id, {
+      retries: options?.profileRetries ?? 0,
+    })) ||
+    (options?.allowFallbackProfile ? buildFallbackProfile(session.user) : null);
+
   return {
     profile,
     user: mapUser(session, profile),
@@ -167,7 +213,10 @@ export const useAuth = create<AuthState>((set, get) => ({
     }
 
     const applySession = async (session: Session | null) => {
-      const { profile, user } = await hydrateFromSession(session);
+      const { profile, user } = await hydrateFromSession(session, {
+        allowFallbackProfile: true,
+        profileRetries: 1,
+      });
       set({
         initialized: true,
         configured: true,
@@ -222,7 +271,10 @@ export const useAuth = create<AuthState>((set, get) => ({
       };
     }
 
-    const { profile, user } = await hydrateFromSession(loginResult.data.session);
+    const { profile, user } = await hydrateFromSession(loginResult.data.session, {
+      allowFallbackProfile: true,
+      profileRetries: 1,
+    });
     set({
       user,
       profile,
@@ -231,6 +283,8 @@ export const useAuth = create<AuthState>((set, get) => ({
       configError: null,
       debugMessage: null,
     });
+
+    void get().refreshProfile();
 
     return { ok: true };
   },
@@ -259,6 +313,7 @@ export const useAuth = create<AuthState>((set, get) => ({
       email: normalizedEmail,
       password,
       options: {
+        emailRedirectTo: getAuthRedirectUrl(),
         data: {
           name: trimmedName,
         },
@@ -275,7 +330,10 @@ export const useAuth = create<AuthState>((set, get) => ({
 
     const session = data.session;
     if (session) {
-      const hydrated = await hydrateFromSession(session);
+      const hydrated = await hydrateFromSession(session, {
+        allowFallbackProfile: true,
+        profileRetries: 1,
+      });
       set({
         user: hydrated.user,
         profile: hydrated.profile,
@@ -284,11 +342,44 @@ export const useAuth = create<AuthState>((set, get) => ({
         configError: null,
         debugMessage: null,
       });
+
+      void get().refreshProfile();
     }
 
     return {
       ok: true,
       message: session ? "Conta criada com sucesso." : "Conta criada. Confirme seu email para continuar.",
+    };
+  },
+  resendConfirmation: async (email) => {
+    if (!supabase) {
+      return { ok: false, error: getConfigError(), debug: "Supabase client ausente." };
+    }
+
+    const normalizedEmail = normalizeEmail(email);
+    if (!normalizedEmail) {
+      return { ok: false, error: "Informe seu email para reenviar a confirmacao." };
+    }
+
+    const { error } = await supabase.auth.resend({
+      type: "signup",
+      email: normalizedEmail,
+      options: {
+        emailRedirectTo: getAuthRedirectUrl(),
+      },
+    });
+
+    if (error) {
+      return {
+        ok: false,
+        error: normalizeAuthError(error.message),
+        debug: `resend: ${error.message}`,
+      };
+    }
+
+    return {
+      ok: true,
+      message: "Enviamos um novo link de confirmacao para seu email.",
     };
   },
   activateWithCode: async (code) => {
@@ -324,7 +415,7 @@ export const useAuth = create<AuthState>((set, get) => ({
       data: { session },
     } = await supabase.auth.getSession();
 
-    const { profile, user } = await hydrateFromSession(session);
+    const { profile, user } = await hydrateFromSession(session, { profileRetries: 2 });
     set({ profile, user, initialized: true, configured: true, configError: null, debugMessage: null });
   },
   recordUsage: async (seconds) => {

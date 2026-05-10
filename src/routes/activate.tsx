@@ -15,6 +15,7 @@ function ActivatePage() {
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [debug, setDebug] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -37,12 +38,14 @@ function ActivatePage() {
     e.preventDefault();
     setError("");
     setSuccess("");
+    setDebug("");
     setSubmitting(true);
     const result = await activateWithCode(code);
     setSubmitting(false);
 
     if (!result.ok) {
       setError(result.error || "Codigo invalido.");
+      setDebug(result.debug || "");
       return;
     }
 
@@ -83,6 +86,11 @@ function ActivatePage() {
 
           {success && <p className="mt-3 text-sm text-emerald-600">{success}</p>}
           {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
+          {debug && (
+            <p className="mt-3 text-xs text-amber-600 break-words rounded-md bg-amber-500/10 px-2 py-1">
+              Debug: {debug}
+            </p>
+          )}
 
           <button
             disabled={submitting}

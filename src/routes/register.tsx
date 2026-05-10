@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/store/auth";
-import { Brain } from "lucide-react";
+import { Brain, Eye, EyeOff } from "lucide-react";
 import { PASSWORD_MIN_LENGTH, validatePasswordPolicy } from "@/lib/security";
 
 export const Route = createFileRoute("/register")({
@@ -15,6 +15,8 @@ function RegisterPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [debug, setDebug] = useState("");
@@ -41,6 +43,11 @@ function RegisterPage() {
     const passwordPolicyError = isReservedSuperadmin ? null : validatePasswordPolicy(password);
     if (passwordPolicyError) {
       setError(passwordPolicyError);
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError("As senhas nao coincidem.");
       return;
     }
 
@@ -78,6 +85,9 @@ function RegisterPage() {
           <p className="text-sm text-muted-foreground text-center">
             Crie seu acesso. Usuarios comuns vao precisar de um codigo no primeiro login.
           </p>
+          <p className="text-xs text-muted-foreground text-center">
+            Depois do cadastro, voce vai receber um email para confirmar a conta e voltar ao Mindora.
+          </p>
         </div>
         {!configured && (
           <div className="mb-4 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
@@ -101,7 +111,7 @@ function RegisterPage() {
             className="w-full px-3 py-2.5 rounded-lg bg-input border border-border outline-none focus:ring-2 focus:ring-ring"
           />
           <input
-            type="password"
+            type={showPassword ? "text" : "password"}
             required
             minLength={PASSWORD_MIN_LENGTH}
             value={password}
@@ -109,6 +119,26 @@ function RegisterPage() {
             placeholder="Senha"
             className="w-full px-3 py-2.5 rounded-lg bg-input border border-border outline-none focus:ring-2 focus:ring-ring"
           />
+          <div className="relative">
+            <input
+              type={showPassword ? "text" : "password"}
+              required
+              minLength={PASSWORD_MIN_LENGTH}
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder="Confirmar senha"
+              className="w-full px-3 py-2.5 pr-11 rounded-lg bg-input border border-border outline-none focus:ring-2 focus:ring-ring"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((current) => !current)}
+              aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+              aria-pressed={showPassword}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
+            >
+              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
+          </div>
           <p className="text-xs text-muted-foreground">
             Minimo de {PASSWORD_MIN_LENGTH} caracteres com maiuscula, minuscula e numero.
             O superadmin pode usar a senha reservada definida no sistema.

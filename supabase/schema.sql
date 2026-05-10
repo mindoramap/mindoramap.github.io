@@ -9,7 +9,7 @@ as $$
 $$;
 
 create table if not exists public.access_codes (
-  id uuid primary key default gen_random_uuid(),
+  id uuid primary key default extensions.gen_random_uuid(),
   code_hash text not null unique,
   created_by uuid references auth.users (id) on delete set null,
   expires_at timestamptz not null,
@@ -280,7 +280,7 @@ begin
     return;
   end if;
 
-  v_hash := encode(digest(lower(trim(coalesce(p_code, ''))), 'sha256'), 'hex');
+  v_hash := encode(extensions.digest(lower(trim(coalesce(p_code, ''))), 'sha256'), 'hex');
 
   update public.access_codes
   set
@@ -326,7 +326,7 @@ begin
     raise exception 'Acesso negado.';
   end if;
 
-  v_code := lower(encode(gen_random_bytes(8), 'hex'));
+  v_code := lower(encode(extensions.gen_random_bytes(8), 'hex'));
   v_expires_at := timezone('utc', now()) + make_interval(hours => greatest(1, least(coalesce(p_expires_in_hours, 24), 720)));
 
   insert into public.access_codes (
@@ -335,7 +335,7 @@ begin
     expires_at
   )
   values (
-    encode(digest(v_code, 'sha256'), 'hex'),
+    encode(extensions.digest(v_code, 'sha256'), 'hex'),
     v_uid,
     v_expires_at
   );

@@ -3,23 +3,36 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/store/auth";
 import { Brain, LockKeyhole, Mail } from "lucide-react";
 
+const AUTH_FEEDBACK_KEY = "mindora-auth-feedback";
+
 export const Route = createFileRoute("/login")({
   head: () => ({ meta: [{ title: "Entrar - Mindora" }] }),
   component: LoginPage,
 });
 
 function LoginPage() {
-  const { user, initialized, configured, configError, debugMessage, login, init } = useAuth();
+  const { user, initialized, configured, configError, debugMessage, login, resendConfirmation, init } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const [debug, setDebug] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [resending, setResending] = useState(false);
 
   useEffect(() => {
     void init();
   }, [init]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const feedback = window.sessionStorage.getItem(AUTH_FEEDBACK_KEY);
+    if (!feedback) return;
+
+    setSuccess(feedback);
+    window.sessionStorage.removeItem(AUTH_FEEDBACK_KEY);
+  }, []);
 
   useEffect(() => {
     if (!initialized) return;
@@ -30,6 +43,7 @@ function LoginPage() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setSuccess("");
     setDebug("");
     setSubmitting(true);
     const result = await login(email, password);
@@ -43,6 +57,23 @@ function LoginPage() {
 
     const nextUser = useAuth.getState().user;
     navigate({ to: nextUser?.role === "superadmin" || nextUser?.accessGranted ? "/dashboard" : "/activate" });
+  };
+
+  const handleResendConfirmation = async () => {
+    setError("");
+    setSuccess("");
+    setDebug("");
+    setResending(true);
+    const result = await resendConfirmation(email);
+    setResending(false);
+
+    if (!result.ok) {
+      setError(result.error || "Nao foi possivel reenviar o email.");
+      setDebug(result.debug || debugMessage || "");
+      return;
+    }
+
+    setSuccess(result.message || "Email reenviado.");
   };
 
   if (!initialized) return null;
@@ -87,6 +118,7 @@ function LoginPage() {
             placeholder="Sua senha"
             className="w-full px-3 py-2.5 rounded-lg bg-input border border-border outline-none focus:ring-2 focus:ring-ring"
           />
+          {success && <p className="text-sm text-emerald-600">{success}</p>}
           {error && <p className="text-sm text-destructive">{error}</p>}
           {debug && (
             <p className="text-xs text-amber-600 break-words rounded-md bg-amber-500/10 px-2 py-1">
@@ -98,6 +130,14 @@ function LoginPage() {
             className="w-full py-2.5 rounded-lg bg-[image:var(--gradient-hero)] text-primary-foreground font-medium hover:opacity-90 transition-opacity disabled:cursor-not-allowed disabled:opacity-70"
           >
             {submitting ? "Entrando..." : "Entrar"}
+          </button>
+          <button
+            type="button"
+            onClick={handleResendConfirmation}
+            disabled={resending || !configured || !email.trim()}
+            className="w-full py-2.5 rounded-lg border border-border bg-background text-foreground font-medium hover:bg-accent transition-colors disabled:cursor-not-allowed disabled:opacity-70"
+          >
+            {resending ? "Reenviando..." : "Reenviar email de confirmacao"}
           </button>
         </form>
         <p className="text-sm text-muted-foreground text-center mt-4">
