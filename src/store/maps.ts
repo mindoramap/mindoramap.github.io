@@ -85,7 +85,36 @@ const FOLDERS_TABLE = "mind_folders";
 const DEFAULT_VIEWPORT: ViewportState = { x: 0, y: 0, zoom: 1 };
 let warnedAboutSchemaFallback = false;
 
-const normalizeEmail = (email: string) => email.trim().toLowerCase();
+// Security: scope cache keys to the owner so data from user A
+// is never readable by user B on the same device.
+const mapsKey = (ownerId: string) => `mm_maps_${ownerId}`;
+const foldersKey = (ownerId: string) => `mm_folders_${ownerId}`;
+
+const readAllMaps = (ownerId?: string): MindMap[] => {
+  if (typeof window === "undefined") return [];
+  const key = ownerId ? mapsKey(ownerId) : KEY;
+  try {
+    return JSON.parse(localStorage.getItem(key) || "[]");
+  } catch {
+    return [];
+  }
+};
+
+const saveAllMaps = (maps: MindMap[], ownerId?: string) =>
+  localStorage.setItem(ownerId ? mapsKey(ownerId) : KEY, JSON.stringify(maps));
+
+const readAllFolders = (ownerId?: string): MindFolder[] => {
+  if (typeof window === "undefined") return [];
+  const key = ownerId ? foldersKey(ownerId) : FOLDERS_KEY;
+  try {
+    return JSON.parse(localStorage.getItem(key) || "[]");
+  } catch {
+    return [];
+  }
+};
+
+const saveAllFolders = (folders: MindFolder[], ownerId?: string) =>
+  localStorage.setItem(ownerId ? foldersKey(ownerId) : FOLDERS_KEY, JSON.stringify(folders));
 const normalizeOptionalEmail = (email?: string) => (email ? normalizeEmail(email) : "");
 const warnSchemaFallback = () => {
   if (warnedAboutSchemaFallback) return;
@@ -146,27 +175,6 @@ const mergeFoldersById = (remoteFolders: MindFolder[], localFolders: MindFolder[
   return [...merged.values()].sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
 };
 
-const readAllMaps = (): MindMap[] => {
-  if (typeof window === "undefined") return [];
-  try {
-    return JSON.parse(localStorage.getItem(KEY) || "[]");
-  } catch {
-    return [];
-  }
-};
-
-const saveAllMaps = (maps: MindMap[]) => localStorage.setItem(KEY, JSON.stringify(maps));
-const readAllFolders = (): MindFolder[] => {
-  if (typeof window === "undefined") return [];
-  try {
-    return JSON.parse(localStorage.getItem(FOLDERS_KEY) || "[]");
-  } catch {
-    return [];
-  }
-};
-
-const saveAllFolders = (folders: MindFolder[]) => localStorage.setItem(FOLDERS_KEY, JSON.stringify(folders));
-
 const normalizeLocalMap = (map: Partial<MindMap>, owner: MapOwner): MindMap => {
   const ownerEmail = normalizeOptionalEmail(map.ownerEmail);
   const ownerId = map.ownerId || (ownerEmail && ownerEmail === normalizeEmail(owner.email) ? owner.id : "");
@@ -205,7 +213,7 @@ const normalizeLocalFolder = (folder: Partial<MindFolder>, owner: MapOwner): Min
 });
 
 const migrateLegacyLocalMaps = (owner: MapOwner): MindMap[] => {
-  const maps = readAllMaps();
+  const maps = readAllMaps(owner.id);
   let changed = false;
 
   const migrated = maps.map((map) => {
@@ -223,7 +231,7 @@ const migrateLegacyLocalMaps = (owner: MapOwner): MindMap[] => {
     return current;
   });
 
-  if (changed) saveAllMaps(migrated);
+  if (changed) saveAllMaps(migrated, owner.id);
   return migrated;
 };
 
@@ -234,7 +242,7 @@ const loadLocalMaps = (owner: MapOwner): MindMap[] =>
   );
 
 const migrateLegacyLocalFolders = (owner: MapOwner): MindFolder[] => {
-  const folders = readAllFolders();
+  const folders = readAllFolders(owner.id);
   let changed = false;
 
   const migrated = folders.map((folder) => {
@@ -252,7 +260,7 @@ const migrateLegacyLocalFolders = (owner: MapOwner): MindFolder[] => {
     return current;
   });
 
-  if (changed) saveAllFolders(migrated);
+  if (changed) saveAllFolders(migrated, owner.id);
   return migrated;
 };
 
@@ -264,19 +272,21 @@ const loadLocalFolders = (owner: MapOwner): MindFolder[] =>
 
 const removeLocalMapsForOwner = (owner: MapOwner) => {
   saveAllMaps(
-    readAllMaps().filter(
+    readAllMaps(owner.id).filter(
       (map) =>
         map.ownerId !== owner.id && normalizeEmail(map.ownerEmail) !== normalizeEmail(owner.email)
-    )
+    ),
+    owner.id
   );
 };
 
 const removeLocalFoldersForOwner = (owner: MapOwner) => {
   saveAllFolders(
-    readAllFolders().filter(
+    readAllFolders(owner.id).filter(
       (folder) =>
         folder.ownerId !== owner.id && normalizeEmail(folder.ownerEmail) !== normalizeEmail(owner.email)
-    )
+    ),
+    owner.id
   );
 };
 
@@ -438,11 +448,11 @@ export const getMap = async (id: string, owner: MapOwner) => {
 
 export const upsertMap = async (map: MindMap) => {
   if (!supabase) {
-    const maps = readAllMaps();
+    const maps = readAllMaps(map.ownerId);
     const index = maps.findIndex((storedMap) => storedMap.id === map.id);
     if (index >= 0) maps[index] = map;
     else maps.push(map);
-    saveAllMaps(maps);
+    saveAllMaps(maps, map.ownerId);
     return;
   }
 
@@ -450,11 +460,11 @@ export const upsertMap = async (map: MindMap) => {
   if (error) {
     if (isSchemaCapabilityError(error)) {
       warnSchemaFallback();
-      const maps = readAllMaps();
+      const maps = readAllMaps(map.ownerId);
       const index = maps.findIndex((storedMap) => storedMap.id === map.id);
       if (index >= 0) maps[index] = map;
       else maps.push(map);
-      saveAllMaps(maps);
+      saveAllMaps(maps, map.ownerId);
       return;
     }
     throw error;
@@ -487,11 +497,11 @@ export const loadFolders = async (owner: MapOwner): Promise<MindFolder[]> => {
 
 export const upsertFolder = async (folder: MindFolder) => {
   if (!supabase) {
-    const folders = readAllFolders();
+    const folders = readAllFolders(folder.ownerId);
     const index = folders.findIndex((storedFolder) => storedFolder.id === folder.id);
     if (index >= 0) folders[index] = folder;
     else folders.push(folder);
-    saveAllFolders(folders);
+    saveAllFolders(folders, folder.ownerId);
     return;
   }
 
@@ -499,11 +509,11 @@ export const upsertFolder = async (folder: MindFolder) => {
   if (error) {
     if (isSchemaCapabilityError(error)) {
       warnSchemaFallback();
-      const folders = readAllFolders();
+      const folders = readAllFolders(folder.ownerId);
       const index = folders.findIndex((storedFolder) => storedFolder.id === folder.id);
       if (index >= 0) folders[index] = folder;
       else folders.push(folder);
-      saveAllFolders(folders);
+      saveAllFolders(folders, folder.ownerId);
       return;
     }
     throw error;
@@ -512,13 +522,13 @@ export const upsertFolder = async (folder: MindFolder) => {
 
 export const deleteFolder = async (id: string, owner: MapOwner) => {
   if (!supabase) {
-    const folders = readAllFolders().filter(
+    const folders = readAllFolders(owner.id).filter(
       (folder) =>
         !(folder.id === id && (folder.ownerId === owner.id || normalizeEmail(folder.ownerEmail) === normalizeEmail(owner.email)))
     );
-    saveAllFolders(folders);
-    const maps = readAllMaps().map((map) => (map.folderId === id ? { ...map, folderId: null } : map));
-    saveAllMaps(maps);
+    saveAllFolders(folders, owner.id);
+    const maps = readAllMaps(owner.id).map((map) => (map.folderId === id ? { ...map, folderId: null } : map));
+    saveAllMaps(maps, owner.id);
     return;
   }
 
@@ -530,13 +540,13 @@ export const deleteFolder = async (id: string, owner: MapOwner) => {
   if (mapsError) {
     if (isSchemaCapabilityError(mapsError)) {
       warnSchemaFallback();
-      const folders = readAllFolders().filter(
+      const folders = readAllFolders(owner.id).filter(
         (folder) =>
           !(folder.id === id && (folder.ownerId === owner.id || normalizeEmail(folder.ownerEmail) === normalizeEmail(owner.email)))
       );
-      saveAllFolders(folders);
-      const maps = readAllMaps().map((map) => (map.folderId === id ? { ...map, folderId: null } : map));
-      saveAllMaps(maps);
+      saveAllFolders(folders, owner.id);
+      const maps = readAllMaps(owner.id).map((map) => (map.folderId === id ? { ...map, folderId: null } : map));
+      saveAllMaps(maps, owner.id);
       return;
     }
     throw mapsError;
@@ -546,11 +556,11 @@ export const deleteFolder = async (id: string, owner: MapOwner) => {
   if (error) {
     if (isSchemaCapabilityError(error)) {
       warnSchemaFallback();
-      const folders = readAllFolders().filter(
+      const folders = readAllFolders(owner.id).filter(
         (folder) =>
           !(folder.id === id && (folder.ownerId === owner.id || normalizeEmail(folder.ownerEmail) === normalizeEmail(owner.email)))
       );
-      saveAllFolders(folders);
+      saveAllFolders(folders, owner.id);
       return;
     }
     throw error;
@@ -560,13 +570,14 @@ export const deleteFolder = async (id: string, owner: MapOwner) => {
 export const deleteMap = async (id: string, owner: MapOwner) => {
   if (!supabase) {
     saveAllMaps(
-      readAllMaps().filter(
+      readAllMaps(owner.id).filter(
         (map) =>
           !(
             map.id === id &&
             (map.ownerId === owner.id || normalizeEmail(map.ownerEmail) === normalizeEmail(owner.email))
           )
-      )
+      ),
+      owner.id
     );
     return;
   }

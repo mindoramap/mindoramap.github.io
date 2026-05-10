@@ -4,8 +4,8 @@ import { create } from "zustand";
 import { validatePasswordPolicy } from "@/lib/security";
 import { getAuthRedirectUrl, supabase } from "@/lib/supabase";
 
-const SUPERADMIN_EMAIL = "gabrielnbn@hotmail.com";
-
+// NOTE: superadmin role is determined solely by the server-side DB (user_profiles.role).
+// Never hardcode privileged emails in client code.
 export type UserRole = "member" | "superadmin";
 
 export interface UserProfile {
@@ -123,16 +123,16 @@ const normalizeAuthError = (message?: string) => {
 };
 
 const buildFallbackProfile = (authUser: SupabaseUser): UserProfile => {
-  const normalizedEmail = normalizeEmail(authUser.email || "");
-  const role: UserRole = normalizedEmail === SUPERADMIN_EMAIL ? "superadmin" : "member";
+  // Security: always assign 'member' role in the fallback profile.
+  // Superadmin status is only ever granted by the server (user_profiles.role via RLS).
   const now = new Date().toISOString();
 
   return {
     user_id: authUser.id,
-    email: normalizedEmail,
+    email: normalizeEmail(authUser.email || ""),
     display_name: getDisplayName(authUser),
-    role,
-    access_granted_at: role === "superadmin" ? now : null,
+    role: "member",
+    access_granted_at: null,
     access_code_id: null,
     total_usage_seconds: 0,
     last_seen_at: now,
