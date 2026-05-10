@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useAuth } from "@/store/auth";
-import { Brain, LockKeyhole, Mail } from "lucide-react";
+import { ArrowLeft, Brain, LockKeyhole, Mail } from "lucide-react";
 
 const AUTH_FEEDBACK_KEY = "mindora-auth-feedback";
 
@@ -67,6 +67,15 @@ function LoginPage() {
         <ThemeToggle compact />
       </div>
       <div className="w-full max-w-sm bg-card border border-border rounded-2xl p-8 shadow-[var(--shadow-soft)]">
+        <div className="mb-5">
+          <Link
+            to="/"
+            className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <ArrowLeft size={16} />
+            Voltar para a página inicial
+          </Link>
+        </div>
         <div className="flex flex-col items-center gap-2 mb-6">
           <span className="w-12 h-12 rounded-xl bg-[image:var(--gradient-hero)] grid place-items-center text-primary-foreground">
             <Brain />
