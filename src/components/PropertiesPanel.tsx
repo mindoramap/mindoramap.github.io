@@ -35,7 +35,7 @@ export function PropertiesPanel({ node, onPatch, onDelete, onKeywordConnect, onC
         </button>
       </div>
 
-      <label className="text-xs text-muted-foreground">Rotulo</label>
+      <label className="text-xs text-muted-foreground">Rótulo</label>
       <input
         value={data.label}
         onChange={(e) => onPatch(id, { label: e.target.value })}
@@ -82,7 +82,7 @@ export function PropertiesPanel({ node, onPatch, onDelete, onKeywordConnect, onC
             checked={!!data.checked}
             onChange={(e) => onPatch(id, { checked: e.target.checked })}
           />
-          Concluido
+          Concluído
         </label>
       )}
 
@@ -111,7 +111,7 @@ export function PropertiesPanel({ node, onPatch, onDelete, onKeywordConnect, onC
           onClick={() => onDelete(id)}
           className="w-full mt-3 px-2 py-1.5 rounded-md border border-destructive/40 text-destructive hover:bg-destructive/10 text-xs flex items-center justify-center gap-1.5"
         >
-          <Trash2 size={12} /> Excluir no
+          <Trash2 size={12} /> Excluir nó
         </button>
       )}
     </aside>

@@ -41,11 +41,24 @@ create table if not exists public.mind_maps (
   owner_id uuid not null references auth.users (id) on delete cascade,
   owner_email text not null,
   title text not null,
+  folder_id uuid,
+  parent_map_id uuid references public.mind_maps (id) on delete set null,
   mode text not null check (mode in ('study', 'brainstorm', 'project')),
   updated_at timestamptz not null default timezone('utc', now()),
+  viewport jsonb not null default '{"x":0,"y":0,"zoom":1}'::jsonb,
   nodes jsonb not null default '[]'::jsonb,
   edges jsonb not null default '[]'::jsonb,
   history jsonb not null default '[]'::jsonb
+);
+
+create table if not exists public.mind_folders (
+  id uuid primary key default extensions.gen_random_uuid(),
+  owner_id uuid not null references auth.users (id) on delete cascade,
+  owner_email text not null,
+  name text not null,
+  parent_id uuid references public.mind_folders (id) on delete cascade,
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now())
 );
 
 create or replace function public.set_profile_updated_at()
@@ -195,6 +208,7 @@ $$;
 alter table public.user_profiles enable row level security;
 alter table public.access_codes enable row level security;
 alter table public.mind_maps enable row level security;
+alter table public.mind_folders enable row level security;
 
 drop policy if exists "profiles read own or superadmin" on public.user_profiles;
 create policy "profiles read own or superadmin"
@@ -254,6 +268,35 @@ with check (auth.uid() = owner_id);
 drop policy if exists "users can delete their own maps" on public.mind_maps;
 create policy "users can delete their own maps"
 on public.mind_maps
+for delete
+to authenticated
+using (auth.uid() = owner_id);
+
+drop policy if exists "users can read their own folders" on public.mind_folders;
+create policy "users can read their own folders"
+on public.mind_folders
+for select
+to authenticated
+using (auth.uid() = owner_id);
+
+drop policy if exists "users can insert their own folders" on public.mind_folders;
+create policy "users can insert their own folders"
+on public.mind_folders
+for insert
+to authenticated
+with check (auth.uid() = owner_id);
+
+drop policy if exists "users can update their own folders" on public.mind_folders;
+create policy "users can update their own folders"
+on public.mind_folders
+for update
+to authenticated
+using (auth.uid() = owner_id)
+with check (auth.uid() = owner_id);
+
+drop policy if exists "users can delete their own folders" on public.mind_folders;
+create policy "users can delete their own folders"
+on public.mind_folders
 for delete
 to authenticated
 using (auth.uid() = owner_id);

@@ -77,6 +77,7 @@ function MindNodeBase({ id, data, selected }: NodeProps<MindNodeData>) {
 
   const safeUrl = isSafeNodeUrl(data.url) ? data.url : null;
   const isExternalLink = Boolean(safeUrl && /^https?:\/\//i.test(safeUrl));
+  const resolvedUrl = safeUrl?.startsWith("/") ? `#${safeUrl}` : safeUrl;
 
   return (
     <ContextMenu>
@@ -159,7 +160,7 @@ function MindNodeBase({ id, data, selected }: NodeProps<MindNodeData>) {
                 </code>
               ) : kind === "link" && safeUrl ? (
                 <a
-                  href={safeUrl}
+                  href={resolvedUrl}
                   target={isExternalLink ? "_blank" : undefined}
                   rel={isExternalLink ? "noreferrer" : undefined}
                   onClick={(e) => e.stopPropagation()}
@@ -179,7 +180,7 @@ function MindNodeBase({ id, data, selected }: NodeProps<MindNodeData>) {
                   }}
                   className="text-sm break-words text-muted-foreground"
                 >
-                  Link invalido
+                  Link inválido
                 </span>
               ) : (
                 <span
@@ -197,11 +198,11 @@ function MindNodeBase({ id, data, selected }: NodeProps<MindNodeData>) {
         </div>
       </ContextMenuTrigger>
 
-      <ContextMenuContent className="w-52">
-        <ContextMenuItem onClick={() => requestAction("edit")}>Editar texto</ContextMenuItem>
-        <ContextMenuItem onClick={() => requestAction("add-child")}>Criar filho</ContextMenuItem>
-        <ContextMenuItem onClick={() => requestAction("add-sibling")}>Criar irmao</ContextMenuItem>
-        <ContextMenuItem onClick={() => requestAction("connect")}>Iniciar conexao</ContextMenuItem>
+        <ContextMenuContent className="w-52">
+          <ContextMenuItem onClick={() => requestAction("edit")}>Editar texto</ContextMenuItem>
+          <ContextMenuItem onClick={() => requestAction("add-child")}>Criar filho</ContextMenuItem>
+          <ContextMenuItem onClick={() => requestAction("add-sibling")}>Criar irmão</ContextMenuItem>
+          <ContextMenuItem onClick={() => requestAction("connect")}>Iniciar conexão</ContextMenuItem>
         <ContextMenuSeparator />
         <ContextMenuItem onClick={() => requestAction("create-linked-map")}>
           Criar mapa conectado
@@ -213,7 +214,7 @@ function MindNodeBase({ id, data, selected }: NodeProps<MindNodeData>) {
               className="text-destructive focus:text-destructive"
               onClick={() => requestAction("delete")}
             >
-              Excluir no
+              Excluir nó
             </ContextMenuItem>
           </>
         )}

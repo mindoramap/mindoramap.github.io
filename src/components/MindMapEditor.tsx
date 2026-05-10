@@ -1,4 +1,3 @@
-// Hybrid mind map editor canvas with controlled connection mode, history, focus dimming
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ReactFlow, {
   Background,
@@ -13,11 +12,13 @@ import ReactFlow, {
   type Edge,
   type Node,
   type NodeMouseHandler,
+  type Viewport,
 } from "reactflow";
+import { CircleHelp, Map as MiniMapIcon, PanelRightOpen } from "lucide-react";
 import { MindNode } from "./MindNode";
 import { PropertiesPanel } from "./PropertiesPanel";
 import { layoutTree } from "@/lib/layout";
-import { createBlankMap, upsertMap, type MindMap, type MindNodeData } from "@/store/maps";
+import { createBlankMap, upsertMap, type MindMap, type MindNodeData, type ViewportState } from "@/store/maps";
 
 const nodeTypes = { mind: MindNode };
 
@@ -32,12 +33,14 @@ interface Props {
   exposeNodes?: (n: Node<MindNodeData>[]) => void;
 }
 
-function tokenize(s: string): string[] {
-  return s
+function tokenize(value: string): string[] {
+  return value
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
     .toLowerCase()
     .replace(/[^\p{L}\p{N}\s]/gu, " ")
     .split(/\s+/)
-    .filter((w) => w.length > 3);
+    .filter((word) => word.length > 2);
 }
 
 function getDescendantIds(nodeId: string, edges: Edge[]): Set<string> {
@@ -119,18 +122,10 @@ function findAvailableChildPosition(
   return preferred;
 }
 
-function getTreeHandleIds(
-  spawnSide: "left" | "right" | "top" | "bottom"
-) {
-  if (spawnSide === "left") {
-    return { sourceHandle: "source-left", targetHandle: "target-right" };
-  }
-  if (spawnSide === "top") {
-    return { sourceHandle: "source-top", targetHandle: "target-bottom" };
-  }
-  if (spawnSide === "bottom") {
-    return { sourceHandle: "source-bottom", targetHandle: "target-top" };
-  }
+function getTreeHandleIds(spawnSide: "left" | "right" | "top" | "bottom") {
+  if (spawnSide === "left") return { sourceHandle: "source-left", targetHandle: "target-right" };
+  if (spawnSide === "top") return { sourceHandle: "source-top", targetHandle: "target-bottom" };
+  if (spawnSide === "bottom") return { sourceHandle: "source-bottom", targetHandle: "target-top" };
   return { sourceHandle: "source-right", targetHandle: "target-left" };
 }
 
@@ -140,95 +135,107 @@ function EditorInner({ map, mode, orientation, connectMode, setConnectMode, orga
   const [selectedId, setSelectedId] = useState<string | null>("root");
   const [pendingSource, setPendingSource] = useState<string | null>(null);
   const [hoverId, setHoverId] = useState<string | null>(null);
-  const { fitView, screenToFlowPosition } = useReactFlow();
+  const [viewport, setViewport] = useState<ViewportState>(map.viewport);
+  const [showInspector, setShowInspector] = useState(true);
+  const [showMiniMap, setShowMiniMap] = useState(true);
+  const [showHelp, setShowHelp] = useState(true);
+  const { fitView } = useReactFlow();
   const historyRef = useRef<{ nodes: Node<MindNodeData>[]; edges: Edge[] }[]>([]);
   const skipHistory = useRef(false);
+  const lastSavedViewport = useRef<ViewportState>(map.viewport);
 
-  // ---------- Persistence ----------
   useEffect(() => {
-    const t = setTimeout(() => {
-      void upsertMap({ ...map, nodes, edges, updatedAt: Date.now() }).catch((error) => {
+    setNodes(map.nodes);
+    setEdges(map.edges);
+    setViewport(map.viewport);
+    setSelectedId("root");
+    setPendingSource(null);
+    setHoverId(null);
+    lastSavedViewport.current = map.viewport;
+  }, [map.id, map.nodes, map.edges, map.viewport, setNodes, setEdges]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void upsertMap({ ...map, nodes, edges, viewport, updatedAt: Date.now() }).catch((error) => {
         console.error("Falha ao salvar mapa", error);
       });
-    }, 400);
-    return () => clearTimeout(t);
-  }, [nodes, edges, map]);
+    }, 300);
 
-  // ---------- History (undo) ----------
+    return () => window.clearTimeout(timer);
+  }, [nodes, edges, viewport, map]);
+
   useEffect(() => {
-    if (skipHistory.current) { skipHistory.current = false; return; }
+    if (skipHistory.current) {
+      skipHistory.current = false;
+      return;
+    }
     historyRef.current.push({ nodes, edges });
     if (historyRef.current.length > 50) historyRef.current.shift();
   }, [nodes, edges]);
 
   useEffect(() => {
     if (undoSignal === 0) return;
-    const h = historyRef.current;
-    if (h.length < 2) return;
-    h.pop(); // current
-    const prev = h[h.length - 1];
+    const history = historyRef.current;
+    if (history.length < 2) return;
+
+    history.pop();
+    const previous = history[history.length - 1];
     skipHistory.current = true;
-    setNodes(prev.nodes);
+    setNodes(previous.nodes);
     skipHistory.current = true;
-    setEdges(prev.edges);
+    setEdges(previous.edges);
   }, [undoSignal, setNodes, setEdges]);
 
-  // expose orientation to nodes (for handle positions)
   useEffect(() => {
     if (typeof document !== "undefined") {
       document.documentElement.dataset.mmOrientation = orientation;
     }
   }, [orientation]);
 
-  // ---------- Auto-organize ----------
   useEffect(() => {
     if (organizeSignal === 0) return;
-    setNodes((ns) => layoutTree(ns, edges, orientation));
-    setTimeout(() => fitView({ padding: 0.2, duration: 400 }), 50);
-  }, [organizeSignal, edges, setNodes, fitView, orientation]);
+    setNodes((currentNodes) => layoutTree(currentNodes, edges, orientation));
+    window.setTimeout(() => fitView({ padding: 0.2, duration: 350 }), 50);
+  }, [organizeSignal, edges, orientation, setNodes, fitView]);
 
   useEffect(() => {
-    if (mode === "tree") {
-      setNodes((ns) => layoutTree(ns, edges, orientation));
-      setTimeout(() => fitView({ padding: 0.2, duration: 400 }), 50);
-    }
-  }, [mode, orientation]); // eslint-disable-line
+    if (mode !== "tree") return;
+    setNodes((currentNodes) => layoutTree(currentNodes, edges, orientation));
+  }, [mode, orientation, edges, setNodes]);
 
   useEffect(() => {
-    const handler = () => fitView({ padding: 0.2, duration: 400 });
-    window.addEventListener("mm-center", handler);
-    return () => window.removeEventListener("mm-center", handler);
+    const centerHandler = () => fitView({ padding: 0.2, duration: 350 });
+    window.addEventListener("mm-center", centerHandler);
+    return () => window.removeEventListener("mm-center", centerHandler);
   }, [fitView]);
 
-  // ---------- Node updates from custom inline editor ----------
   useEffect(() => {
-    const handler = (e: Event) => {
-      const { id, patch } = (e as CustomEvent).detail as { id: string; patch: Partial<MindNodeData> };
-      setNodes((ns) => ns.map((n) => (n.id === id ? { ...n, data: { ...n.data, ...patch } } : n)));
+    const handler = (event: Event) => {
+      const { id, patch } = (event as CustomEvent).detail as { id: string; patch: Partial<MindNodeData> };
+      setNodes((currentNodes) => currentNodes.map((node) => (node.id === id ? { ...node, data: { ...node.data, ...patch } } : node)));
     };
     window.addEventListener("mm-node-update", handler);
     return () => window.removeEventListener("mm-node-update", handler);
   }, [setNodes]);
 
-  // ---------- Focus highlighting ----------
   const connectedSet = useMemo(() => {
     if (!selectedId) return null;
-    const set = new Set<string>([selectedId]);
-    edges.forEach((e) => {
-      if (e.source === selectedId) set.add(e.target);
-      if (e.target === selectedId) set.add(e.source);
+    const connected = new Set<string>([selectedId]);
+    edges.forEach((edge) => {
+      if (edge.source === selectedId) connected.add(edge.target);
+      if (edge.target === selectedId) connected.add(edge.source);
     });
-    return set;
+    return connected;
   }, [selectedId, edges]);
 
   const styledNodes = useMemo(
     () =>
-      nodes.map((n) => ({
-        ...n,
+      nodes.map((node) => ({
+        ...node,
         style: {
-          ...n.style,
-          opacity: connectedSet && !connectedSet.has(n.id) ? 0.35 : 1,
-          transition: "opacity 200ms",
+          ...node.style,
+          opacity: connectedSet && !connectedSet.has(node.id) ? 0.35 : 1,
+          transition: "opacity 200ms ease",
         },
       })),
     [nodes, connectedSet]
@@ -236,47 +243,45 @@ function EditorInner({ map, mode, orientation, connectMode, setConnectMode, orga
 
   const styledEdges = useMemo(
     () =>
-      edges.map((e) => {
-        const involved = selectedId && (e.source === selectedId || e.target === selectedId);
+      edges.map((edge) => {
+        const involved = selectedId && (edge.source === selectedId || edge.target === selectedId);
         return {
-          ...e,
-          className: e.data?.kind === "graph" ? "graph-edge" : "tree-edge",
-          animated: e.data?.kind === "graph" && !!involved,
+          ...edge,
+          className: edge.data?.kind === "graph" ? "graph-edge" : "tree-edge",
+          animated: edge.data?.kind === "graph" && Boolean(involved),
           style: {
             opacity: selectedId && !involved ? 0.25 : 1,
-            transition: "opacity 200ms",
+            transition: "opacity 200ms ease",
           },
         };
       }),
     [edges, selectedId]
   );
 
-  // ---------- Connections ----------
   const onConnect = useCallback(
     (params: Connection) => {
-      const hasSourceOrTarget = !params.source || !params.target;
-      if (hasSourceOrTarget || params.source === params.target) return;
+      if (!params.source || !params.target || params.source === params.target) return;
       const exists = edges.some(
         (edge) =>
           (edge.source === params.source && edge.target === params.target) ||
           (edge.source === params.target && edge.target === params.source)
       );
       if (exists) return;
-      setEdges((es) =>
+
+      setEdges((currentEdges) =>
         addEdge(
           {
             ...params,
             id: `e-${params.source}-${params.target}-${Date.now()}`,
             data: { kind: "graph" },
           },
-          es
+          currentEdges
         )
       );
     },
     [edges, setEdges]
   );
 
-  // ---------- Node creation ----------
   const addChild = useCallback(
     (
       parentId: string,
@@ -284,44 +289,34 @@ function EditorInner({ map, mode, orientation, connectMode, setConnectMode, orga
       nodeData?: Partial<MindNodeData>,
       spawnSide?: "left" | "right" | "top" | "bottom"
     ) => {
-      const parent = nodes.find((n) => n.id === parentId);
+      const parent = nodes.find((node) => node.id === parentId);
       if (!parent) return;
+
       const id = crypto.randomUUID();
       const targetParent = sibling
-        ? edges.find((e) => e.target === parentId && e.data?.kind !== "graph")?.source ?? parentId
+        ? edges.find((edge) => edge.target === parentId && edge.data?.kind !== "graph")?.source ?? parentId
         : parentId;
-      const base = nodes.find((n) => n.id === targetParent) || parent;
-      const resolvedSpawnSide =
-        spawnSide || (orientation === "vertical" ? "bottom" : "right");
-      // Spread children radially
-      const childCount = edges.filter((e) => e.source === targetParent && e.data?.kind !== "graph").length;
-      const angle = (childCount * 0.6) - 0.6;
+      const base = nodes.find((node) => node.id === targetParent) || parent;
+      const resolvedSpawnSide = spawnSide || (orientation === "vertical" ? "bottom" : "right");
+      const childCount = edges.filter((edge) => edge.source === targetParent && edge.data?.kind !== "graph").length;
+      const angle = childCount * 0.6 - 0.6;
       const horizontalDirection = resolvedSpawnSide === "left" ? -1 : 1;
       const verticalDirection = resolvedSpawnSide === "top" ? -1 : 1;
-      const dx =
-        orientation === "vertical"
-          ? Math.cos(angle) * 40
-          : horizontalDirection * 240;
-      const dy =
-        orientation === "vertical"
-          ? verticalDirection * 140
-          : Math.sin(angle) * 40 + childCount * 30 - 30;
+      const dx = orientation === "vertical" ? Math.cos(angle) * 40 : horizontalDirection * 240;
+      const dy = orientation === "vertical" ? verticalDirection * 140 : Math.sin(angle) * 40 + childCount * 30 - 30;
       const preferredPosition = {
-        x:
-          base.position.x +
-          dx +
-          (orientation === "vertical" ? Math.cos(angle) * 220 : 0),
+        x: base.position.x + dx + (orientation === "vertical" ? Math.cos(angle) * 220 : 0),
         y: base.position.y + dy,
       };
-      const occupiedBranchIds = new Set<string>([targetParent]);
       const resolvedPosition = findAvailableChildPosition(
         preferredPosition,
         nodes,
-        occupiedBranchIds,
+        new Set<string>([targetParent]),
         orientation,
         resolvedSpawnSide
       );
       const handleIds = getTreeHandleIds(resolvedSpawnSide);
+
       const newNode: Node<MindNodeData> = {
         id,
         type: "mind",
@@ -332,9 +327,10 @@ function EditorInner({ map, mode, orientation, connectMode, setConnectMode, orga
           ...nodeData,
         },
       };
-      setNodes((ns) => [...ns, newNode]);
-      setEdges((es) => [
-        ...es,
+
+      setNodes((currentNodes) => [...currentNodes, newNode]);
+      setEdges((currentEdges) => [
+        ...currentEdges,
         {
           id: `e-${targetParent}-${id}`,
           source: targetParent,
@@ -346,24 +342,26 @@ function EditorInner({ map, mode, orientation, connectMode, setConnectMode, orga
       ]);
       setSelectedId(id);
     },
-    [nodes, edges, setNodes, setEdges, orientation, map.mode]
+    [nodes, edges, orientation, map.mode, setNodes, setEdges]
   );
 
-  // ---------- Click handlers ----------
   const onNodeClick: NodeMouseHandler = useCallback(
     (_, node) => {
       if (connectMode) {
         if (!pendingSource) {
           setPendingSource(node.id);
-        } else if (pendingSource !== node.id) {
+          return;
+        }
+
+        if (pendingSource !== node.id) {
           const exists = edges.some(
-            (e) =>
-              (e.source === pendingSource && e.target === node.id) ||
-              (e.source === node.id && e.target === pendingSource)
+            (edge) =>
+              (edge.source === pendingSource && edge.target === node.id) ||
+              (edge.source === node.id && edge.target === pendingSource)
           );
           if (!exists) {
-            setEdges((es) => [
-              ...es,
+            setEdges((currentEdges) => [
+              ...currentEdges,
               {
                 id: `e-${pendingSource}-${node.id}-${Date.now()}`,
                 source: pendingSource,
@@ -376,17 +374,16 @@ function EditorInner({ map, mode, orientation, connectMode, setConnectMode, orga
         }
         return;
       }
+
       setSelectedId(node.id);
+      setShowInspector(true);
     },
     [connectMode, pendingSource, edges, setEdges]
   );
 
   useEffect(() => {
-    const handler = (e: Event) => {
-      const { id, side } = (e as CustomEvent).detail as {
-        id: string;
-        side?: "left" | "right" | "top" | "bottom";
-      };
+    const handler = (event: Event) => {
+      const { id, side } = (event as CustomEvent).detail as { id: string; side?: "left" | "right" | "top" | "bottom" };
       addChild(id, false, undefined, side);
     };
     window.addEventListener("mm-node-add-child", handler);
@@ -394,14 +391,15 @@ function EditorInner({ map, mode, orientation, connectMode, setConnectMode, orga
   }, [addChild]);
 
   useEffect(() => {
-    const handler = (e: Event) => {
-      const { id, action } = (e as CustomEvent).detail as {
+    const handler = (event: Event) => {
+      const { id, action } = (event as CustomEvent).detail as {
         id: string;
         action: "add-child" | "add-sibling" | "edit" | "connect" | "create-linked-map" | "delete";
       };
 
       if (action === "edit") {
         setSelectedId(id);
+        setShowInspector(true);
         window.dispatchEvent(new CustomEvent("mm-node-start-edit", { detail: { id } }));
         return;
       }
@@ -428,83 +426,94 @@ function EditorInner({ map, mode, orientation, connectMode, setConnectMode, orga
       if (action === "delete") {
         if (id === "root") return;
         const idsToRemove = getDescendantIds(id, edges);
-        setNodes((ns) => ns.filter((n) => !idsToRemove.has(n.id)));
-        setEdges((es) => es.filter((edge) => !idsToRemove.has(edge.source) && !idsToRemove.has(edge.target)));
+        setNodes((currentNodes) => currentNodes.filter((node) => !idsToRemove.has(node.id)));
+        setEdges((currentEdges) => currentEdges.filter((edge) => !idsToRemove.has(edge.source) && !idsToRemove.has(edge.target)));
         setSelectedId(null);
         return;
       }
 
       if (action === "create-linked-map") {
-        const sourceNode = nodes.find((node) => node.id === id);
-        if (!sourceNode) return;
+        void (async () => {
+          const sourceNode = nodes.find((node) => node.id === id);
+          if (!sourceNode) return;
 
-        const linkedMap = createBlankMap(
-          { id: map.ownerId, email: map.ownerEmail },
-          `${sourceNode.data.label || "Mapa"} - conectado`,
-          map.mode
-        );
-        void upsertMap(linkedMap).catch((error) => {
+          const linkedMap = createBlankMap(
+            { id: map.ownerId, email: map.ownerEmail },
+            `${sourceNode.data.label || "Mapa"} - conectado`,
+            map.mode,
+            { folderId: map.folderId, parentMapId: map.id }
+          );
+
+          await upsertMap(linkedMap);
+          addChild(id, false, {
+            label: linkedMap.title,
+            kind: "link",
+            url: `/editor/${linkedMap.id}`,
+            linkedMapId: linkedMap.id,
+          });
+        })().catch((error) => {
           console.error("Falha ao criar mapa conectado", error);
-        });
-
-        addChild(id, false, {
-          label: linkedMap.title,
-          kind: "link",
-          url: `/editor/${linkedMap.id}`,
-          linkedMapId: linkedMap.id,
         });
       }
     };
 
     window.addEventListener("mm-node-action", handler);
     return () => window.removeEventListener("mm-node-action", handler);
-  }, [addChild, edges, map.mode, map.ownerEmail, nodes, setConnectMode, setEdges, setNodes]);
+  }, [addChild, edges, map.folderId, map.id, map.mode, map.ownerEmail, map.ownerId, nodes, setConnectMode, setEdges, setNodes]);
 
-  // ---------- Keyboard ----------
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const tag = (e.target as HTMLElement)?.tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA") return;
-      if (e.key === "Escape") {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const targetTag = (event.target as HTMLElement)?.tagName;
+      if (targetTag === "INPUT" || targetTag === "TEXTAREA") return;
+
+      if (event.key === "Escape") {
         setConnectMode(false);
         setPendingSource(null);
         setSelectedId(null);
         return;
       }
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
-        e.preventDefault();
+
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "z") {
+        event.preventDefault();
         window.dispatchEvent(new Event("mm-undo"));
         return;
       }
+
       if (!selectedId) return;
-      if (e.key === "Enter") { e.preventDefault(); addChild(selectedId, true); }
-      else if (e.key === "Tab") { e.preventDefault(); addChild(selectedId, false); }
-      else if (e.key === "Delete" || e.key === "Backspace") {
+
+      if (event.key === "Enter") {
+        event.preventDefault();
+        addChild(selectedId, true);
+      } else if (event.key === "Tab") {
+        event.preventDefault();
+        addChild(selectedId, false);
+      } else if (event.key === "Delete" || event.key === "Backspace") {
         if (selectedId === "root") return;
-        e.preventDefault();
+        event.preventDefault();
         const idsToRemove = getDescendantIds(selectedId, edges);
-        setNodes((ns) => ns.filter((n) => !idsToRemove.has(n.id)));
-        setEdges((es) => es.filter((ed) => !idsToRemove.has(ed.source) && !idsToRemove.has(ed.target)));
+        setNodes((currentNodes) => currentNodes.filter((node) => !idsToRemove.has(node.id)));
+        setEdges((currentEdges) => currentEdges.filter((edge) => !idsToRemove.has(edge.source) && !idsToRemove.has(edge.target)));
         setSelectedId(null);
       }
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
   }, [selectedId, addChild, edges, setNodes, setEdges, setConnectMode]);
 
-  // ---------- Properties panel handlers ----------
   const patchNode = useCallback(
     (id: string, patch: Partial<MindNodeData>) => {
-      setNodes((ns) => ns.map((n) => (n.id === id ? { ...n, data: { ...n.data, ...patch } } : n)));
+      setNodes((currentNodes) => currentNodes.map((node) => (node.id === id ? { ...node, data: { ...node.data, ...patch } } : node)));
     },
     [setNodes]
   );
+
   const deleteNode = useCallback(
     (id: string) => {
       if (id === "root") return;
       const idsToRemove = getDescendantIds(id, edges);
-      setNodes((ns) => ns.filter((n) => !idsToRemove.has(n.id)));
-      setEdges((es) => es.filter((e) => !idsToRemove.has(e.source) && !idsToRemove.has(e.target)));
+      setNodes((currentNodes) => currentNodes.filter((node) => !idsToRemove.has(node.id)));
+      setEdges((currentEdges) => currentEdges.filter((edge) => !idsToRemove.has(edge.source) && !idsToRemove.has(edge.target)));
       setSelectedId(null);
     },
     [edges, setNodes, setEdges]
@@ -512,79 +521,102 @@ function EditorInner({ map, mode, orientation, connectMode, setConnectMode, orga
 
   const keywordConnect = useCallback(
     (id: string, scope: "one" | "all") => {
-      const src = nodes.find((n) => n.id === id);
-      if (!src) return;
-      const tokens = new Set(tokenize(src.data.label));
+      const source = nodes.find((node) => node.id === id);
+      if (!source) return;
+
+      const tokens = new Set(tokenize(source.data.label));
       if (tokens.size === 0) {
         alert("O nó precisa ter palavras significativas.");
         return;
       }
+
       const scored = nodes
-        .filter((n) => n.id !== id)
-        .map((n) => {
-          const t = tokenize(n.data.label);
-          const matches = t.filter((w) => tokens.has(w));
-          return { node: n, score: matches.length };
+        .filter((node) => node.id !== id)
+        .map((node) => {
+          const words = tokenize(node.data.label);
+          const matches = words.filter((word) => tokens.has(word));
+          return { node, score: matches.length };
         })
-        .filter((x) => x.score > 0)
-        .sort((a, b) => b.score - a.score);
+        .filter((entry) => entry.score > 0)
+        .sort((left, right) => right.score - left.score);
 
       if (scored.length === 0) {
         alert("Nenhum nó com palavra-chave em comum.");
         return;
       }
-      const targets = scope === "one" ? [scored[0].node] : scored.map((s) => s.node);
+
+      const targets = scope === "one" ? [scored[0].node] : scored.map((entry) => entry.node);
       const newEdges: Edge[] = [];
-      targets.forEach((t) => {
+
+      targets.forEach((target) => {
         const exists = edges.some(
-          (e) =>
-            (e.source === id && e.target === t.id) ||
-            (e.source === t.id && e.target === id)
+          (edge) =>
+            (edge.source === id && edge.target === target.id) ||
+            (edge.source === target.id && edge.target === id)
         );
         if (!exists) {
           newEdges.push({
-            id: `e-kw-${id}-${t.id}-${Date.now()}`,
+            id: `e-kw-${id}-${target.id}-${Date.now()}`,
             source: id,
-            target: t.id,
+            target: target.id,
             data: { kind: "graph" },
           });
         }
       });
-      if (newEdges.length) setEdges((es) => [...es, ...newEdges]);
+
+      if (newEdges.length > 0) {
+        setEdges((currentEdges) => [...currentEdges, ...newEdges]);
+      }
     },
     [nodes, edges, setEdges]
   );
 
-  // listen to "mm-undo"
   useEffect(() => {
-    const h = () => window.dispatchEvent(new CustomEvent("mm-undo-internal"));
-    window.addEventListener("mm-undo", h);
-    return () => window.removeEventListener("mm-undo", h);
+    const handler = () => window.dispatchEvent(new CustomEvent("mm-undo-internal"));
+    window.addEventListener("mm-undo", handler);
+    return () => window.removeEventListener("mm-undo", handler);
   }, []);
 
-  const selectedNode = selectedId ? nodes.find((n) => n.id === selectedId) : null;
+  const persistViewport = useCallback((nextViewport: Viewport | ViewportState) => {
+    const normalized = {
+      x: Number(nextViewport.x.toFixed(2)),
+      y: Number(nextViewport.y.toFixed(2)),
+      zoom: Number(nextViewport.zoom.toFixed(3)),
+    };
+    if (
+      normalized.x === lastSavedViewport.current.x &&
+      normalized.y === lastSavedViewport.current.y &&
+      normalized.zoom === lastSavedViewport.current.zoom
+    ) {
+      return;
+    }
+    lastSavedViewport.current = normalized;
+    setViewport(normalized);
+  }, []);
 
-  // proximity hint
+  const selectedNode = selectedId ? nodes.find((node) => node.id === selectedId) : null;
+
   const proximityHintEdge = useMemo(() => {
     if (!hoverId || !selectedId || hoverId === selectedId) return null;
-    const a = nodes.find((n) => n.id === selectedId);
-    const b = nodes.find((n) => n.id === hoverId);
-    if (!a || !b) return null;
-    const dx = a.position.x - b.position.x;
-    const dy = a.position.y - b.position.y;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-    if (dist > 220) return null;
+    const source = nodes.find((node) => node.id === selectedId);
+    const target = nodes.find((node) => node.id === hoverId);
+    if (!source || !target) return null;
+
+    const dx = source.position.x - target.position.x;
+    const dy = source.position.y - target.position.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    if (distance > 220) return null;
+
     const exists = edges.some(
-      (e) =>
-        (e.source === selectedId && e.target === hoverId) ||
-        (e.source === hoverId && e.target === selectedId)
+      (edge) =>
+        (edge.source === selectedId && edge.target === hoverId) ||
+        (edge.source === hoverId && edge.target === selectedId)
     );
-    if (exists) return null;
-    return { source: selectedId, target: hoverId };
+    return exists ? null : { source: selectedId, target: hoverId };
   }, [hoverId, selectedId, nodes, edges]);
 
   return (
-    <div className={`w-full h-full relative ${connectMode ? "cursor-crosshair" : ""}`}>
+    <div className={`relative h-full w-full ${connectMode ? "cursor-crosshair" : ""}`}>
       <ReactFlow
         nodes={styledNodes}
         edges={styledEdges}
@@ -592,16 +624,20 @@ function EditorInner({ map, mode, orientation, connectMode, setConnectMode, orga
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         onNodeClick={onNodeClick}
-        onNodeMouseEnter={(_, n) => setHoverId(n.id)}
+        onNodeMouseEnter={(_, node) => setHoverId(node.id)}
         onNodeMouseLeave={() => setHoverId(null)}
-        onPaneClick={() => { setSelectedId(null); setPendingSource(null); }}
+        onPaneClick={() => {
+          setSelectedId(null);
+          setPendingSource(null);
+        }}
+        onMoveEnd={(_, nextViewport) => persistViewport(nextViewport)}
         onEdgeClick={(_, edge) => {
           if (confirm("Remover esta conexão?")) {
-            setEdges((es) => es.filter((e) => e.id !== edge.id));
+            setEdges((currentEdges) => currentEdges.filter((currentEdge) => currentEdge.id !== edge.id));
           }
         }}
         nodeTypes={nodeTypes}
-        fitView
+        defaultViewport={map.viewport}
         proOptions={{ hideAttribution: true }}
         deleteKeyCode={null}
         nodesConnectable
@@ -609,37 +645,80 @@ function EditorInner({ map, mode, orientation, connectMode, setConnectMode, orga
       >
         <Background gap={24} size={1} color="oklch(0.7 0.02 270 / 0.25)" />
         <Controls className="!shadow-none" showInteractive={false} />
-        <MiniMap
-          className="!bg-card !border !border-border rounded-lg overflow-hidden"
-          maskColor="oklch(0 0 0 / 0.1)"
-          nodeColor={() => "oklch(0.55 0.22 280)"}
-          pannable
-          zoomable
-        />
+        {showMiniMap && (
+          <MiniMap
+            className="!overflow-hidden rounded-lg !border !border-border !bg-card"
+            maskColor="oklch(0 0 0 / 0.1)"
+            nodeColor={() => "oklch(0.55 0.22 280)"}
+            pannable
+            zoomable
+          />
+        )}
       </ReactFlow>
 
-      {/* connect mode overlay banner */}
       {connectMode && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground px-4 py-2 rounded-full shadow-[var(--shadow-soft)] text-sm font-medium z-10 pointer-events-none">
-          {pendingSource ? "Clique no nó destino…" : "Modo conexão: selecione o nó de origem"}
+        <div className="pointer-events-none absolute left-1/2 top-4 z-10 -translate-x-1/2 rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-[var(--shadow-soft)]">
+          {pendingSource ? "Clique no nó de destino..." : "Modo conexão: selecione o nó de origem"}
         </div>
       )}
 
-      {/* proximity suggestion */}
       {proximityHintEdge && (
-        <div className="absolute bottom-20 left-1/2 -translate-x-1/2 bg-card border border-primary/50 rounded-full px-3 py-1 text-xs text-primary z-10 pointer-events-none animate-pulse">
-          ✦ Sugestão: conectar nós próximos
+        <div className="pointer-events-none absolute bottom-20 left-1/2 z-10 -translate-x-1/2 rounded-full border border-primary/50 bg-card px-3 py-1 text-xs text-primary animate-pulse">
+          Sugestão: conectar nós próximos
         </div>
       )}
 
-      {selectedNode && !connectMode && (
+      {selectedNode && !connectMode && showInspector && (
         <PropertiesPanel
           node={selectedNode}
           onPatch={patchNode}
           onDelete={deleteNode}
           onKeywordConnect={keywordConnect}
-          onClose={() => setSelectedId(null)}
+          onClose={() => setShowInspector(false)}
         />
+      )}
+
+      <div className="absolute bottom-4 right-4 z-20 flex flex-col gap-2">
+        <button
+          type="button"
+          onClick={() => setShowInspector((current) => !current)}
+          className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs shadow-[var(--shadow-soft)] transition-colors ${
+            showInspector ? "bg-card text-foreground hover:bg-muted" : "bg-primary text-primary-foreground"
+          }`}
+          title={showInspector ? "Ocultar painel de propriedades" : "Mostrar painel de propriedades"}
+        >
+          <PanelRightOpen size={14} /> Mostrar painéis
+        </button>
+        <button
+          type="button"
+          onClick={() => setShowMiniMap((current) => !current)}
+          className="inline-flex items-center gap-2 rounded-full border bg-card px-3 py-2 text-xs shadow-[var(--shadow-soft)] transition-colors hover:bg-muted"
+          title={showMiniMap ? "Ocultar minimapa" : "Mostrar minimapa"}
+        >
+          <MiniMapIcon size={14} /> Minimapa
+        </button>
+        <button
+          type="button"
+          onClick={() => setShowHelp((current) => !current)}
+          className="inline-flex items-center gap-2 rounded-full border bg-card px-3 py-2 text-xs shadow-[var(--shadow-soft)] transition-colors hover:bg-muted"
+          title={showHelp ? "Ocultar ajuda" : "Mostrar ajuda"}
+        >
+          <CircleHelp size={14} /> Ajuda
+        </button>
+      </div>
+
+      {showHelp && (
+        <div className="absolute bottom-4 left-4 rounded-lg border border-border bg-card/90 px-3 py-2 text-xs text-muted-foreground backdrop-blur">
+          <p>
+            <kbd className="font-semibold text-foreground">Duplo-clique</kbd> no nó cria filho
+          </p>
+          <p>
+            <kbd className="font-semibold text-foreground">Tab</kbd> cria filho · <kbd className="font-semibold text-foreground">Enter</kbd> cria irmão
+          </p>
+          <p>
+            <kbd className="font-semibold text-foreground">Ctrl+Z</kbd> desfaz · <kbd className="font-semibold text-foreground">Del</kbd> remove
+          </p>
+        </div>
       )}
     </div>
   );

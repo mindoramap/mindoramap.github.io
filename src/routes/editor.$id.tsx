@@ -4,7 +4,7 @@ import { useAuth } from "@/store/auth";
 import { Header } from "@/components/Header";
 import { MindMapEditor } from "@/components/MindMapEditor";
 import { getMap, type MindMap } from "@/store/maps";
-import { GitBranch, Network, Crosshair, Link2, Wand2, Undo2 } from "lucide-react";
+import { ArrowLeft, GitBranch, Network, Crosshair, Link2, Wand2, Undo2 } from "lucide-react";
 
 export const Route = createFileRoute("/editor/$id")({
   head: () => ({ meta: [{ title: "Editor - Mindora" }] }),
@@ -86,6 +86,15 @@ function EditorPage() {
     <div className="h-screen flex flex-col">
       <Header>
         <h1 className="font-semibold truncate">{map.title}</h1>
+        {map.parentMapId && (
+          <button
+            onClick={() => navigate({ to: "/editor/$id", params: { id: map.parentMapId! } })}
+            className="px-3 py-1.5 rounded-lg hover:bg-muted text-sm flex items-center gap-1.5"
+            title="Voltar ao mapa anterior"
+          >
+            <ArrowLeft size={14} /> Voltar
+          </button>
+        )}
         <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-accent text-accent-foreground">
           {MODE_LABEL[map.mode] || "Brainstorm"}
         </span>
@@ -95,7 +104,7 @@ function EditorPage() {
             onClick={() => setView("tree")}
             className={`px-3 py-1.5 rounded-md text-sm flex items-center gap-1.5 transition-all ${view === "tree" ? "bg-card shadow-sm" : "text-muted-foreground"}`}
           >
-            <GitBranch size={14} /> Arvore
+            <GitBranch size={14} /> Árvore
           </button>
           <button
             onClick={() => setView("graph")}
@@ -110,7 +119,7 @@ function EditorPage() {
           className={`px-3 py-1.5 rounded-lg text-sm flex items-center gap-1.5 transition-colors ${
             connectMode ? "bg-primary text-primary-foreground" : "hover:bg-muted"
           }`}
-          title="Modo conexao (Esc para sair)"
+          title="Modo conexão (Esc para sair)"
         >
           <Link2 size={14} /> Conectar
         </button>
@@ -151,10 +160,10 @@ function EditorPage() {
         />
         <div className="absolute bottom-4 left-4 bg-card/90 backdrop-blur border border-border rounded-lg px-3 py-2 text-xs text-muted-foreground space-y-0.5 pointer-events-none">
           <p>
-            <kbd className="font-semibold text-foreground">Duplo-clique</kbd> no no cria filho
+            <kbd className="font-semibold text-foreground">Duplo-clique</kbd> no nó cria filho
           </p>
           <p>
-            <kbd className="font-semibold text-foreground">Tab</kbd> filho - <kbd className="font-semibold text-foreground">Enter</kbd> irmao
+            <kbd className="font-semibold text-foreground">Tab</kbd> filho · <kbd className="font-semibold text-foreground">Enter</kbd> irmão
           </p>
           <p>
             <kbd className="font-semibold text-foreground">Ctrl+Z</kbd> desfazer - <kbd className="font-semibold text-foreground">Del</kbd> remover
