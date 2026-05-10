@@ -39,6 +39,7 @@ export const Route = createRootRoute({
 
 function RootComponent() {
   const [processingAuth, setProcessingAuth] = useState(true);
+  const [authMessage, setAuthMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -58,10 +59,7 @@ function RootComponent() {
       const refreshToken = hashParams.get("refresh_token");
       const hashType = hashParams.get("type");
       const callbackType = type || hashType;
-
-      const redirectToLogin = () => {
-        window.location.replace(`${window.location.origin}${window.location.pathname}#/login`);
-      };
+      const loginHref = `${window.location.pathname}#/login`;
 
       if (errorCode || errorDescription || hashErrorCode || hashErrorDescription) {
         const decodedError = decodeURIComponent(errorDescription || hashErrorDescription || "").trim();
@@ -72,7 +70,9 @@ function RootComponent() {
             : "Nao foi possivel confirmar seu email. Tente novamente.";
 
         setAuthFeedback(message);
-        redirectToLogin();
+        setAuthMessage(message);
+        window.history.replaceState({}, document.title, loginHref);
+        setProcessingAuth(false);
         return;
       }
 
@@ -88,22 +88,24 @@ function RootComponent() {
         });
 
         if (result.error) {
-          setAuthFeedback(
-            result.error.message.toLowerCase().includes("expired")
-              ? "Seu link de confirmacao expirou. Solicite um novo email para continuar."
-              : "Nao foi possivel confirmar seu email. Solicite um novo link e tente novamente."
-          );
-          redirectToLogin();
+          const message = result.error.message.toLowerCase().includes("expired")
+            ? "Seu link de confirmacao expirou. Solicite um novo email para continuar."
+            : "Nao foi possivel confirmar seu email. Solicite um novo link e tente novamente.";
+          setAuthFeedback(message);
+          setAuthMessage(message);
+          window.history.replaceState({}, document.title, loginHref);
+          setProcessingAuth(false);
           return;
         }
 
-        setAuthFeedback(
+        const message =
           callbackType === "signup"
             ? "Email confirmado com sucesso. Agora voce pode entrar."
-            : "Acesso validado com sucesso."
-        );
-        window.history.replaceState({}, document.title, `${window.location.pathname}#/login`);
-        redirectToLogin();
+            : "Acesso validado com sucesso.";
+        setAuthFeedback(message);
+        setAuthMessage(message);
+        window.history.replaceState({}, document.title, loginHref);
+        setProcessingAuth(false);
         return;
       }
 
@@ -118,18 +120,20 @@ function RootComponent() {
       });
 
       if (result.error) {
-        setAuthFeedback(
-          result.error.message.toLowerCase().includes("expired")
-            ? "Seu link de confirmacao expirou. Solicite um novo email para continuar."
-            : "Nao foi possivel confirmar seu email. Solicite um novo link e tente novamente."
-        );
-        redirectToLogin();
+        const message = result.error.message.toLowerCase().includes("expired")
+          ? "Seu link de confirmacao expirou. Solicite um novo email para continuar."
+          : "Nao foi possivel confirmar seu email. Solicite um novo link e tente novamente.";
+        setAuthFeedback(message);
+        setAuthMessage(message);
+        window.history.replaceState({}, document.title, loginHref);
+        setProcessingAuth(false);
         return;
       }
 
       setAuthFeedback("Email confirmado com sucesso. Agora voce pode entrar.");
-      window.history.replaceState({}, document.title, `${window.location.pathname}#/login`);
-      redirectToLogin();
+      setAuthMessage("Conta criada com sucesso. Agora voce pode fazer login.");
+      window.history.replaceState({}, document.title, loginHref);
+      setProcessingAuth(false);
     };
 
     void handleAuthCallback();
@@ -141,6 +145,23 @@ function RootComponent() {
         <div className="max-w-md text-center">
           <h1 className="text-2xl font-semibold text-foreground">Confirmando acesso</h1>
           <p className="mt-2 text-sm text-muted-foreground">Estamos validando seu link de email.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (authMessage) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background px-4">
+        <div className="max-w-md rounded-2xl border border-border bg-card p-8 text-center shadow-[var(--shadow-soft)]">
+          <h1 className="text-2xl font-semibold text-foreground">Conta confirmada</h1>
+          <p className="mt-3 text-sm text-muted-foreground">{authMessage}</p>
+          <a
+            href={`${window.location.pathname}#/login`}
+            className="mt-6 inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+          >
+            Ir para o login
+          </a>
         </div>
       </div>
     );
