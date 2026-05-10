@@ -11,7 +11,7 @@ export const Route = createFileRoute("/login")({
 });
 
 function LoginPage() {
-  const { user, initialized, configured, configError, debugMessage, login, resendConfirmation, init } = useAuth();
+  const { user, initialized, configured, configError, debugMessage, login, init } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -19,7 +19,6 @@ function LoginPage() {
   const [success, setSuccess] = useState("");
   const [debug, setDebug] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [resending, setResending] = useState(false);
 
   useEffect(() => {
     void init();
@@ -57,23 +56,6 @@ function LoginPage() {
 
     const nextUser = useAuth.getState().user;
     navigate({ to: nextUser?.role === "superadmin" || nextUser?.accessGranted ? "/dashboard" : "/activate" });
-  };
-
-  const handleResendConfirmation = async () => {
-    setError("");
-    setSuccess("");
-    setDebug("");
-    setResending(true);
-    const result = await resendConfirmation(email);
-    setResending(false);
-
-    if (!result.ok) {
-      setError(result.error || "Nao foi possivel reenviar o email.");
-      setDebug(result.debug || debugMessage || "");
-      return;
-    }
-
-    setSuccess(result.message || "Email reenviado.");
   };
 
   if (!initialized) return null;
@@ -130,14 +112,6 @@ function LoginPage() {
             className="w-full py-2.5 rounded-lg bg-[image:var(--gradient-hero)] text-primary-foreground font-medium hover:opacity-90 transition-opacity disabled:cursor-not-allowed disabled:opacity-70"
           >
             {submitting ? "Entrando..." : "Entrar"}
-          </button>
-          <button
-            type="button"
-            onClick={handleResendConfirmation}
-            disabled={resending || !configured || !email.trim()}
-            className="w-full py-2.5 rounded-lg border border-border bg-background text-foreground font-medium hover:bg-accent transition-colors disabled:cursor-not-allowed disabled:opacity-70"
-          >
-            {resending ? "Reenviando..." : "Reenviar email de confirmacao"}
           </button>
         </form>
         <p className="text-sm text-muted-foreground text-center mt-4">

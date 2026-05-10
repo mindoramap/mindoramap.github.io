@@ -1,8 +1,14 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { Shield, Users, Clock3, Ticket } from "lucide-react";
+import { Shield, Users, Clock3, Ticket, Mail } from "lucide-react";
 import { Header } from "@/components/Header";
-import { createAccessCode, loadAccessCodeAudit, loadAdminUsers, type AccessCodeAuditRow } from "@/lib/admin";
+import {
+  buildAccessCodeEmail,
+  createAccessCode,
+  loadAccessCodeAudit,
+  loadAdminUsers,
+  type AccessCodeAuditRow,
+} from "@/lib/admin";
 import { useAuth, type UserProfile } from "@/store/auth";
 
 export const Route = createFileRoute("/admin")({
@@ -36,8 +42,10 @@ function AdminPage() {
   const [audit, setAudit] = useState<AccessCodeAuditRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [expiresInHours, setExpiresInHours] = useState(24);
+  const [targetUserId, setTargetUserId] = useState("");
   const [generatedCode, setGeneratedCode] = useState("");
   const [generatedCodeExpiresAt, setGeneratedCodeExpiresAt] = useState("");
+  const [generatedCodeTargetEmail, setGeneratedCodeTargetEmail] = useState("");
   const [error, setError] = useState("");
   const [debug, setDebug] = useState("");
   const [creating, setCreating] = useState(false);
@@ -104,16 +112,28 @@ function AdminPage() {
     };
   }, [profiles]);
 
+  const pendingProfiles = useMemo(
+    () => profiles.filter((profile) => profile.role !== "superadmin" && !profile.access_granted_at),
+    [profiles]
+  );
+
   const generateCode = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setDebug("");
+
+    if (!targetUserId) {
+      setError("Selecione o usuario que vai receber o codigo.");
+      return;
+    }
+
     setCreating(true);
 
     try {
-      const result = await createAccessCode(expiresInHours);
+      const result = await createAccessCode(targetUserId, expiresInHours);
       setGeneratedCode(result.accessCode);
       setGeneratedCodeExpiresAt(result.expiresAt);
+      setGeneratedCodeTargetEmail(result.targetEmail);
       setAudit(await loadAccessCodeAudit());
     } catch (generateError) {
       console.error("Falha ao gerar codigo de acesso", generateError);
@@ -226,6 +246,22 @@ function AdminPage() {
               <h2 className="text-lg font-semibold mb-4">Gerar codigo hexadecimal</h2>
               <form onSubmit={generateCode} className="space-y-4">
                 <div>
+                  <label className="text-xs text-muted-foreground">Usuario de destino</label>
+                  <select
+                    required
+                    value={targetUserId}
+                    onChange={(e) => setTargetUserId(e.target.value)}
+                    className="w-full mt-1 px-3 py-2.5 rounded-lg bg-input border border-border outline-none focus:ring-2 focus:ring-ring"
+                  >
+                    <option value="">Selecione um usuario pendente</option>
+                    {pendingProfiles.map((profile) => (
+                      <option key={profile.user_id} value={profile.user_id}>
+                        {profile.email} - {profile.display_name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
                   <label className="text-xs text-muted-foreground">Expiracao em horas</label>
                   <input
                     type="number"
@@ -247,10 +283,17 @@ function AdminPage() {
               {generatedCode && (
                 <div className="mt-4 rounded-xl border border-primary/30 bg-primary/5 p-4">
                   <p className="text-xs text-muted-foreground">Codigo gerado agora</p>
+                  <p className="text-xs text-muted-foreground mt-1">Destino: {generatedCodeTargetEmail}</p>
                   <p className="mt-2 font-mono text-lg break-all">{generatedCode}</p>
                   <p className="text-xs text-muted-foreground mt-2">
                     Expira em {new Date(generatedCodeExpiresAt).toLocaleString()}
                   </p>
+                  <a
+                    href={buildAccessCodeEmail(generatedCodeTargetEmail, generatedCode, generatedCodeExpiresAt)}
+                    className="mt-3 inline-flex items-center gap-2 rounded-lg border border-primary/30 px-3 py-2 text-sm font-medium text-primary transition-colors hover:bg-primary/10"
+                  >
+                    <Mail size={14} /> Enviar para o email do usuario
+                  </a>
                 </div>
               )}
             </section>
@@ -261,12 +304,13 @@ function AdminPage() {
                 {audit.length === 0 ? (
                   <p className="text-sm text-muted-foreground">Nenhum codigo gerado ainda.</p>
                 ) : (
-                  audit.map((row) => (
-                    <div key={row.id} className="rounded-xl border border-border p-3 text-sm">
-                      <p className="font-medium">{row.used_at ? "Utilizado" : "Disponivel"}</p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Expira em {new Date(row.expires_at).toLocaleString()}
-                      </p>
+                    audit.map((row) => (
+                      <div key={row.id} className="rounded-xl border border-border p-3 text-sm">
+                        <p className="font-medium">{row.used_at ? "Utilizado" : "Disponivel"}</p>
+                        <p className="text-xs text-muted-foreground mt-1">Destino: {row.target_email}</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Expira em {new Date(row.expires_at).toLocaleString()}
+                        </p>
                       <p className="text-xs text-muted-foreground">
                         Criado em {new Date(row.created_at).toLocaleString()}
                       </p>

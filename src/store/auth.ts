@@ -5,7 +5,6 @@ import { validatePasswordPolicy } from "@/lib/security";
 import { getAuthRedirectUrl, supabase } from "@/lib/supabase";
 
 const SUPERADMIN_EMAIL = "gabrielnbn@hotmail.com";
-const SUPERADMIN_PASSWORD = "Mindora123*";
 
 export type UserRole = "member" | "superadmin";
 
@@ -65,9 +64,6 @@ let authSubscription: Subscription | null = null;
 const normalizeEmail = (email: string) => email.trim().toLowerCase();
 
 const wait = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
-
-const isReservedSuperadminCredentials = (email: string, password: string) =>
-  normalizeEmail(email) === SUPERADMIN_EMAIL && password === SUPERADMIN_PASSWORD;
 
 const getDisplayName = (user: SupabaseUser) => {
   const metadataName = typeof user.user_metadata?.name === "string" ? user.user_metadata.name.trim() : "";
@@ -305,10 +301,6 @@ export const useAuth = create<AuthState>((set, get) => ({
       return { ok: false, error: passwordPolicyError };
     }
 
-    if (normalizedEmail === SUPERADMIN_EMAIL && password !== SUPERADMIN_PASSWORD) {
-      return { ok: false, error: "Esse email esta reservado para o superadmin." };
-    }
-
     const { data, error } = await supabase.auth.signUp({
       email: normalizedEmail,
       password,
@@ -348,7 +340,7 @@ export const useAuth = create<AuthState>((set, get) => ({
 
     return {
       ok: true,
-      message: session ? "Conta criada com sucesso." : "Conta criada. Confirme seu email para continuar.",
+      message: session ? "Conta criada com sucesso." : "Conta criada com sucesso.",
     };
   },
   resendConfirmation: async (email) => {

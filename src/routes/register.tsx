@@ -37,10 +37,7 @@ function RegisterPage() {
     setError("");
     setSuccess("");
     setDebug("");
-    const normalizedEmail = email.trim().toLowerCase();
-    const isReservedSuperadmin =
-      normalizedEmail === "gabrielnbn@hotmail.com" && password === "Mindora123*";
-    const passwordPolicyError = isReservedSuperadmin ? null : validatePasswordPolicy(password);
+    const passwordPolicyError = validatePasswordPolicy(password);
     if (passwordPolicyError) {
       setError(passwordPolicyError);
       return;
@@ -62,9 +59,7 @@ function RegisterPage() {
     }
 
     setSuccess(
-      normalizedEmail === "gabrielnbn@hotmail.com"
-        ? "Conta de superadmin criada. Volte para o login e entre com sua senha."
-        : result.message || "Conta criada."
+      result.message || "Conta criada."
     );
     const nextUser = useAuth.getState().user;
     if (nextUser) {
@@ -86,7 +81,7 @@ function RegisterPage() {
             Crie seu acesso. Usuarios comuns vao precisar de um codigo no primeiro login.
           </p>
           <p className="text-xs text-muted-foreground text-center">
-            Depois do cadastro, voce vai receber um email para confirmar a conta e voltar ao Mindora.
+            Depois do cadastro, voce podera entrar e solicitar a liberacao do acesso com o codigo enviado pelo admin.
           </p>
         </div>
         {!configured && (
@@ -141,7 +136,6 @@ function RegisterPage() {
           </div>
           <p className="text-xs text-muted-foreground">
             Minimo de {PASSWORD_MIN_LENGTH} caracteres com maiuscula, minuscula e numero.
-            O superadmin pode usar a senha reservada definida no sistema.
           </p>
           {success && <p className="text-sm text-emerald-600">{success}</p>}
           {error && <p className="text-sm text-destructive">{error}</p>}
